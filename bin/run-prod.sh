@@ -4,15 +4,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-function run-gunicorn () {
-    if [[ -z "$NEW_RELIC_LICENSE_KEY" ]]; then
-        exec gunicorn "$@"
-    else
-        export NEW_RELIC_CONFIG_FILE=newrelic.ini
-        exec newrelic-admin run-program gunicorn "$@"
-    fi
-}
-
 # look for the required files and fail quickly if it's not there
 STARTUP_FILES=(
     "data/bedrock.db"
@@ -26,4 +17,15 @@ for fname in "${STARTUP_FILES[@]}"; do
     fi
 done
 
-run-gunicorn wsgi.app:application --config wsgi/config.py
+# Granian recommends containerized apps use the defaults of workers=1, threads=1.
+# The backgpressure defaults to backlog (1024) / workers (1), but should be adjusted to match the
+# number of database connections when configured for databases.
+granian --interface wsgi \
+    --host 0.0.0.0 \
+    --port "${PORT:-8000}" \
+    --no-ws \
+    --workers "${GRANIAN_WORKERS:-1}" \
+    --threads "${GRANIAN_THREADS:-1}" \
+    --backpressure "${GRANIAN_BACKPRESSURE:-1024}" \
+    --log-level "${GRANIAN_LOG_LEVEL:-warning}" \
+    wsgi.app:application

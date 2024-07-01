@@ -26,12 +26,6 @@ def mobile_app(request, *args, **kwargs):
 
     campaign_options = [
         "firefox-whatsnew",
-        "firefox-whatsnew-120",
-        "firefox-whatsnew-121-us",
-        "firefox-whatsnew-121-gb",
-        "firefox-whatsnew-121-de",
-        "firefox-whatsnew-121-fr",
-        "firefox-whatsnew-122",
         "firefox-welcome-4",
         "firefox-welcome-6",
         "firefox-welcome-17-en",
@@ -397,17 +391,17 @@ redirectpatterns = (
     redirect(r"^projects/tech-evangelism(/.*)?$", "https://wiki.mozilla.org/Evangelism"),
     redirect(r"^projects/venkman(/.*)?$", "https://developer.mozilla.org/docs/Archive/Mozilla/Venkman"),
     redirect(r"^projects/webservices/examples/babelfish-wsdl(/.*)?$", "https://developer.mozilla.org/docs/SOAP_in_Gecko-based_Browsers"),
-    redirect(r"^projects/xbl(/.*)?$", "https://developer.mozilla.org/docs/Mozilla/Tech/XBL"),
-    redirect(r"^projects/xforms(/.*)?$", "https://developer.mozilla.org/docs/Archive/Web/XForms"),
+    redirect(r"^projects/xbl(/.*)?$", "https://www.w3.org/TR/xbl/"),
+    redirect(r"^projects/xforms(/.*)?$", "https://wiki.mozilla.org/XForms"),
     redirect(r"^projects/xpcom(/.*)?$", "https://developer.mozilla.org/docs/Mozilla/Tech/XPCOM"),
     redirect(r"^projects/xpinstall(/.*)?$", "https://developer.mozilla.org/docs/Archive/Mozilla/XPInstall"),
     redirect(r"^projects/xslt(/.*)?$", "https://developer.mozilla.org/docs/Web/XSLT"),
-    redirect(r"^projects/xul(/.*)?$", "https://developer.mozilla.org/docs/Mozilla/Tech/XUL"),
+    redirect(r"^projects/xul(/.*)?$", "https://wiki.mozilla.org/XUL"),
     redirect(r"^quality/help(/.*)?$", "http://quality.mozilla.org/get-involved"),
     redirect(r"^quality(/.*)?$", "http://quality.mozilla.org/"),
     # Bug 654614 /blocklist -> addons.m.o/blocked
     redirect(r"^blocklist(/.*)?$", "https://addons.mozilla.org/blocked/"),
-    redirect(r"^products/firebird/compare/?$", "/firefox/browsers/compare/"),
+    redirect(r"^products/firebird/compare/?$", "firefox.new"),
     redirect(r"^products/firebird/?$", "firefox"),
     redirect(r"^products/firebird/download/$", "firefox.new"),
     redirect(r"^products/firefox/add-engines\.html$", "https://addons.mozilla.org/search-engines.php"),
@@ -506,8 +500,6 @@ redirectpatterns = (
     # issue 14141
     redirect(r"^firefox/browsers/mobile/compare/?$", "firefox.browsers.mobile.index"),
     redirect(r"^firefox/ios/?$", "firefox.browsers.mobile.ios"),
-    # issue 14142
-    redirect(r"^firefox/browsers/compare/ie/?$", "firefox.browsers.compare.index"),
     # issue 9502
     redirect(r"^firefox/quantum/?", "/firefox/browsers/quantum/"),
     # bug 1421584, issue 7491
@@ -600,4 +592,10 @@ redirectpatterns = (
     redirect(r"^firefox/browsers/mobile/app/?$", mobile_app, cache_timeout=0, query=False),
     # issue 14231
     redirect(r"^firefox/flashback/?$", "firefox"),
+    # issue 14222
+    redirect(r"^firefox/browsers/?$", "firefox"),
+    # issue 14248
+    redirect(r"^firefox/privacy/products/?$", "products.landing"),
+    redirect(r"^firefox/privacy/safe-passwords/?$", "firefox.features.password-manager"),
+    redirect(r"^firefox/privacy/book/?$", "https://support.mozilla.org/kb/how-stay-safe-web"),
 )

@@ -27,6 +27,16 @@ from bedrock.base.templatetags.helpers import static
 ALL_FX_PLATFORMS = ("windows", "linux", "mac", "android", "ios")
 
 
+@library.global_function
+def needs_data_consent(country_code):
+    """
+    Global helper that can be passed a country_code via a template
+    in order to determine if cookie consent banner should be shown.
+    """
+    country_list = settings.DATA_CONSENT_COUNTRIES
+    return country_code in country_list
+
+
 def _strip_img_prefix(url):
     return re.sub(r"^/?img/", "", url)
 
@@ -330,45 +340,14 @@ def video(ctx, *args, **kwargs):
 
 @library.global_function
 @jinja2.pass_context
-def press_blog_url(ctx):
-    """Output a link to the press blog taking locales into account.
+def donate_url(ctx, location=""):
+    """Output a formatted donation link to the donation popup form.
 
-    Uses the locale from the current request. Checks to see if we have
-    a press blog that matches this locale, returns the localized press blog
-    url or falls back to the US press blog url if not.
-
-    Examples
-    ========
-
-    In Template
-    -----------
-
-        {{ press_blog_url() }}
-
-    For en-US this would output:
-
-        https://blog.mozilla.org/press/
-
-    For en-GB this would output:
-
-        https://blog.mozilla.org/press-uk/
-
-    For de this would output:
-
-        https://blog.mozilla.org/press-de/
-
-    """
-    locale = getattr(ctx["request"], "locale", "en-US")
-    if locale not in settings.PRESS_BLOGS:
-        locale = "en-US"
-
-    return settings.PRESS_BLOG_ROOT + settings.PRESS_BLOGS[locale]
-
-
-@library.global_function
-@jinja2.pass_context
-def donate_url(ctx, content=""):
-    """Output a formatted donation link to the donation page
+    Location parameter indicates the page or position of the link for attribution.
+    The value must be preconfigured in FundraiseUp before it can be accepted.
+    Undefined values will not trigger the donation widget.
+    If no location parameter is supplied the fallback URL is the standalone
+    /donate/ page.
 
     Examples
     ========
@@ -380,20 +359,19 @@ def donate_url(ctx, content=""):
 
     This would output:
 
-        https://foundation.mozilla.org/?form=donate&utm_source=mozilla.org&utm_medium=referral&utm_campaign=moco
+        https://foundation.mozilla.org/donate/
 
-        {{ donate(content='footer')}}
+        {{ donate(location='contribute')}}
 
     This would output:
 
-        https://foundation.mozilla.org/?form=donate&utm_source=mozilla.org&utm_medium=referral&utm_campaign=moco&utm_content=footer
-
+        https://foundation.mozilla.org/?form=contribute
 
     """
 
-    content = "&utm_content=" + content if content else ""
+    location = "?form=" + location if location else "donate/"
 
-    return settings.DONATE_LINK.format(content=content)
+    return settings.DONATE_LINK.format(location=location)
 
 
 @library.global_function

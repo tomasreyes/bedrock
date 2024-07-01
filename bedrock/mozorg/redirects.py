@@ -14,8 +14,6 @@ def to_uppercase(url):
 
 
 redirectpatterns = (
-    # bug 755826, 1222348, 1416798
-    redirect(r"^zh-CN/?$", "https://www.firefox.com.cn/", locale_prefix=False, query={"utm_medium": "referral", "utm_source": "mozilla.org"}),
     # bug 874913, 681572
     redirect(r"^(products/)?download\.html", "firefox.new", query=""),
     # bug 845580
@@ -99,14 +97,10 @@ redirectpatterns = (
     redirect(r"^about/mission\.html$", "/mission/"),
     # Bug 784411 /about/mission/ -> /mission/
     redirect(r"^about/mission/?$", "/mission/"),
-    # Bug 1171763, 1347752 - /research/ -> research.m.o
-    redirect(r"^research(/.*)?$", "https://research.mozilla.org/"),
     # Bug 800298 /webmaker/ -> wm.o and /webmaker/videos/ ->
     # wm.o/videos/
     redirect(r"webmaker/?$", "https://webmaker.org"),
     redirect(r"webmaker/videos/?$", "https://webmaker.org/videos/"),
-    # Bug 819317 /gameon/ -> gameon.m.o
-    redirect(r"gameon/?$", "https://gameon.mozilla.org"),
     # Bug 822817 /telemetry/ ->
     # https://wiki.mozilla.org/Telemetry/FAQ
     redirect(r"telemetry/?$", "https://wiki.mozilla.org/Telemetry/FAQ"),
@@ -252,7 +246,7 @@ redirectpatterns = (
     ),
     redirect(r"^access/windows/msaa-server\.html$", "https://developer.mozilla.org/docs/Web/Accessibility/Implementing_MSAA_server"),
     redirect(r"^access/windows/zoomtext\.html$", "https://developer.mozilla.org/docs/Mozilla/Accessibility/ZoomText"),
-    redirect(r"^access/donate(\.html|/)?$", "https://donate.mozilla.org/"),
+    redirect(r"^access/donate(\.html|/)?$", "https://foundation.mozilla.org/donate/"),
     # bug 1148187
     redirect(r"^access/(?P<page>.+)$", "http://website-archive.mozilla.org/www.mozilla.org/access/access/{page}"),
     # bug 987852
@@ -333,8 +327,8 @@ redirectpatterns = (
     redirect(r"^foundation/donate_form\.pdf$", "https://static.mozilla.com/foundation/documents/donate_form.pdf", re_flags="i"),
     # openwebfund/ and openwebfund/index.html redirect to another site.  Careful because
     # there are other pages under openwebfund that still need to be served from Bedrock.
-    redirect(r"^foundation/openwebfund/(index\.html)?$", "https://donate.mozilla.org/?source=owf_redirect", re_flags="i"),
-    redirect(r"^foundation/donate\.html$", "https://donate.mozilla.org/?source=donate_redirect", re_flags="i"),
+    redirect(r"^foundation/openwebfund/(index\.html)?$", "https://foundation.mozilla.org/donate/", re_flags="i"),
+    redirect(r"^foundation/donate\.html$", "https://foundation.mozilla.org/donate/", re_flags="i"),
     # FIXUPs for changing foo/bar.html to foo/bar/
     # Redirect foundation/foo.html to foundation/foo/, with a redirect for the nice search engines
     redirect(r"^foundation/(?P<page>about|careers|licensing|moco|mocosc)\.html$", "/foundation/{page}/", re_flags="i"),
@@ -395,11 +389,11 @@ redirectpatterns = (
     redirect(r"^hacking/?$", "https://firefox-source-docs.mozilla.org/"),
     # Issue 10736
     redirect(r"^jobs/?$", "careers.home"),
-    redirect(r"^join/?$", "https://donate.mozilla.org/"),
+    redirect(r"^join/?$", "https://foundation.mozilla.org/donate/"),
     # Bug 1262593
     redirect(r"^unix/remote\.html$", "http://www-archive.mozilla.org/unix/remote.html"),
     # Bug 1313023
-    redirect(r"^story/?$", "https://donate.mozilla.org/?source=story_redirect"),
+    redirect(r"^story/?$", "https://foundation.mozilla.org/donate/"),
     # Bug 1317260
     redirect(
         r"^about/governance/policies/security-group/certs/policy/(?P<anchor>inclusion|maintenance|enforcement)/?",
@@ -494,8 +488,8 @@ redirectpatterns = (
             "utm_campaign": "builders-redirect",
         },
     ),
-    # Issue 6824
-    redirect(r"^technology/?$", "https://labs.mozilla.org/"),
+    # Issue 6824, 14364
+    redirect(r"^technology/?$", "https://future.mozilla.org/"),
     # Issue 8668
     redirect(r"^contact/communities(/.*)?", "https://community.mozilla.org/groups/"),
     # Issue 8641
@@ -513,14 +507,7 @@ redirectpatterns = (
     # Issue 8375
     redirect(r"^internet-health(/.*)?", "https://foundation.mozilla.org/internet-health/"),
     # Issue 8949
-    redirect(
-        r"^donate/?$",
-        "https://donate.mozilla.org/",
-        query={
-            "utm_source": "mozilla.org",
-            "utm_content": "shortlink",
-        },
-    ),
+    redirect(r"^donate/?$", "https://foundation.mozilla.org/donate/"),
     redirect(r"^about/governance/policies/security/plugin-whitelist-policy/?$", "https://wiki.mozilla.org/Plugins/Firefox_Whitelist"),
     redirect(r"^about/governance/policies/security-group/tld-idn/?$", "https://wiki.mozilla.org/IDN_Display_Algorithm"),
     # Issue 9560
@@ -566,6 +553,18 @@ redirectpatterns = (
     redirect(r"^firefox/products/?$", "/products/"),
     # Issue 14252
     redirect(r"^stories/?$", "https://blog.mozilla.org/category/products/firefox/"),
+    # Issue 14245
+    redirect(r"^contact/spaces/berlin/?$", "/contact/spaces/"),
+    redirect(r"^contact/spaces/beijing/?$", "/contact/spaces/"),
+    redirect(r"^contact/spaces/san-francisco/?$", "/contact/spaces/"),
+    redirect(r"^contact/spaces/toronto/?$", "/contact/spaces/"),
+    redirect(r"^contact/spaces/paris/?$", "/contact/spaces/"),
     # Issue 14255
     redirect(r"^rise25/?$", "/rise25/nominate/"),
+    # Issue 14351
+    redirect(r"^research/?$", "https://foundation.mozilla.org/research/"),
+    redirect(r"^research/cc/?$", "https://foundation.mozilla.org/research/library/?topics=187"),
+    # redirects that don't need a lang code prefix
+    redirect(r"^diversity/?$", "mozorg.diversity.2022.index", locale_prefix=False),
+    redirect(r"^webvision/?$", "mozorg.about.webvision.summary", locale_prefix=True, prepend_locale=False),
 )

@@ -144,7 +144,7 @@ def l10nize(f):
 
         # can not use += here because that mutates the original list
         ftl_files = ftl_files + settings.FLUENT_DEFAULT_FILES
-        locale = kwargs.get("locale") or translation.get_language(True)
+        locale = kwargs.get("locale") or translation.get_language()
         locales = [locale]
         if locale != "en":
             locales.append("en")
@@ -234,7 +234,7 @@ def get_active_locales(ftl_files, force=False):
 
 def ftl_file_is_active(ftl_file, locale=None):
     """Return True if the given FTL file is active in the given locale."""
-    locale = locale or translation.get_language(True)
+    locale = locale or translation.get_language()
     return locale in get_active_locales(ftl_file)
 
 
@@ -254,7 +254,7 @@ def ftl_has_messages(l10n, *message_ids, require_all=True):
 
 def translate(l10n, message_id, fallback=None, **kwargs):
     # check the `locale` bundle for the message if we have a fallback defined
-    if fallback and not l10n.has_message(message_id):
+    if fallback and l10n.has_message(fallback) and not l10n.has_message(message_id):
         message_id = fallback
 
     return l10n.format_value(message_id, kwargs)

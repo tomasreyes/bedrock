@@ -117,11 +117,12 @@
 
     <div class="c-landing-grid-item">
       {{ resp_img(
-        url='img/firefox/browsers/mobile/index/firefox-focus.jpg',
+        url='img/firefox/mobile/firefox-focus.jpg',
         srcset={
-          'img/firefox/browsers/mobile/index/firefox-focus-high-res.jpg': '2x'
+          'img/firefox/mobile/firefox-focus-high-res.jpg': '2x'
         },
         optional_attributes={
+          'l10n': True,
           'class': 'c-landing-grid-img',
           'width': '350',
           'height': '218'
@@ -142,6 +143,7 @@
     </div>
 
   </section>
+
   <section class="c-browser-compare mzp-l-content mzp-t-content-lg">
     {% call split(
       image=resp_img('img/firefox/browsers/dev.png',
@@ -150,13 +152,13 @@
       ),
       block_class='t-compare'
     ) %}
-      <h2>{{ ftl('browsers-mobile-see-how-firefox-for-desktop-compare') }}</h2>
-      <p class="c-compare-title mzp-has-zap-06">{{ ftl('browsers-mobile-see-how-firefox-for-desktop-strong') }}</p>
+      <h2>{{ ftl('browsers-mobile-see-how-firefox-for-desktop-compare-v2') }}</h2>
+      <p class="c-compare-title mzp-has-zap-06">{{ ftl('browsers-mobile-see-how-firefox-for-desktop-strong-v2') }}</p>
       <p><a class="mzp-c-cta-link" href="{{ url('firefox.browsers.compare.index') }}" data-cta-type="link" data-cta-text="Compare">{{ ftl('browsers-mobile-compare') }}</a></p>
     {% endcall %}
   </section>
 
-  {% include 'mozorg/includes/mozilla-account-form-promo.html' %}
+  {% include 'mozorg/includes/mozilla-account-promo.html' %}
 
 </main>
 {% endblock %}

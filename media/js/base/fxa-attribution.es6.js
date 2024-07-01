@@ -80,18 +80,8 @@ FxaAttribution.getFxALinkReferralData = () => {
     return null;
 };
 
-FxaAttribution.getReferrer = (ref) => {
-    const referrer = typeof ref === 'string' ? ref : document.referrer;
-
-    if (typeof window.Mozilla.Analytics !== 'undefined') {
-        return Mozilla.Analytics.getReferrer(referrer);
-    }
-
-    return referrer;
-};
-
 FxaAttribution.getSearchReferralData = (ref) => {
-    const referrer = FxaAttribution.getReferrer(ref);
+    const referrer = typeof ref === 'string' ? ref : document.referrer;
     const google = /^https?:\/\/www\.google\.\w{2,3}(\.\w{2})?\/?/;
     const bing = /^https?:\/\/www\.bing\.com\/?/;
     const yahoo = /^https?:\/\/(\w*\.)?search\.yahoo\.com\/?/;
@@ -243,21 +233,6 @@ FxaAttribution.getExperimentData = (params) => {
     return null;
 };
 
-FxaAttribution.getCouponData = (params) => {
-    if (typeof params !== 'object') {
-        return null;
-    }
-
-    for (const param in params) {
-        if (Object.prototype.hasOwnProperty.call(params, param)) {
-            if (param === 'coupon' && _validParamChars.test(params[param])) {
-                return { coupon: params[param] };
-            }
-        }
-    }
-    return null;
-};
-
 /**
  * Append an object of accepted parameters to a given URL.
  * Object parameters will erase all existing accepted parameters, whether present or not.
@@ -310,14 +285,6 @@ FxaAttribution.appendToProductURL = (url, data) => {
         }
 
         finalParams = Object.assign(linkParams, data);
-
-        // Only append coupons to FxA /subscribe/ links.
-        if (
-            Object.prototype.hasOwnProperty.call(finalParams, 'coupon') &&
-            url.indexOf('/subscriptions/') === -1
-        ) {
-            delete finalParams['coupon'];
-        }
     } else {
         finalParams = data;
     }
@@ -333,7 +300,6 @@ FxaAttribution.getAttributionData = (urlParams) => {
     let params = {};
     const utmData = FxaAttribution.getUtmData(urlParams);
     const experimentData = FxaAttribution.getExperimentData(urlParams);
-    const couponData = FxaAttribution.getCouponData(urlParams);
 
     // If there are UTM params in the page URL, then
     // validate those as referral data.
@@ -358,11 +324,6 @@ FxaAttribution.getAttributionData = (urlParams) => {
     // Always pass along experiment data.
     if (experimentData) {
         params = Object.assign(params, experimentData);
-    }
-
-    // Always pass a coupon when present as a parameter.
-    if (couponData) {
-        params = Object.assign(params, couponData);
     }
 
     return params;

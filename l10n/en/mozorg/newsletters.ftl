@@ -60,11 +60,6 @@ newsletters-please-select-country = Please select a country or region
 # Form field error message
 newsletters-please-select-language = Please select a language
 
-# Form field label
-newsletters-format = Format:
-
-newsletters-text-subscribers-will-receive = Text subscribers will receive an email twice a year to confirm continuation of the subscription. Those emails may include HTML.
-
 # Variables:
 #   $url (url) - link to https://support.mozilla.org/kb/managing-account-data
 
@@ -161,9 +156,6 @@ newsletters-check-for-data-breaches = Check for data breaches
 
 newsletters-mozilla-monitor-is-a-free = { -brand-name-mozilla-monitor } is a free service that lets you see if you’ve been involved in an online data breach.
 
-# Obsolete string
-newsletters-firefox-monitor-is-a-free = { -brand-name-firefox-monitor } is a free service that lets you see if you’ve been involved in an online data breach.
-
 newsletters-sign-in-to-monitor = Sign In to { -brand-name-monitor }
 newsletters-meet-our-parent-brand = Meet our parent brand
 newsletters-mozilla-the-non-for-profit = { -brand-name-mozilla }, the not-for-profit behind { -brand-name-firefox }, puts people over profit in everything we say, build, and do.
@@ -206,9 +198,6 @@ newsletters-get-all-the-knowledge = Get all the knowledge you need to stay safer
 
 # Name for the newsletter in Newsletter subscription page
 newsletters-about-labs = About Labs
-
-# Name for the newsletter in Newsletter subscription page
-newsletters-desktop = Desktop
 
 # Name for the newsletter in Newsletter subscription page
 newsletters-mozillians = Mozillians
@@ -389,9 +378,6 @@ newsletters-welcome-emails = Welcome emails
 
 # Description for the newsletter in Newsletter subscription page (Welcome emails)
 newsletter-welcome-emails-that-get-you = Welcome emails that get you started using our products and services.
-
-# Name for the newsletter in Newsletter subscription page
-newsletters-android = { -brand-name-android }
 
 # Headline for https://www-dev.allizom.org/newsletter/knowledge-is-power
 newsletters-subscribe-to-the-newsletter = Subscribe to the newsletter

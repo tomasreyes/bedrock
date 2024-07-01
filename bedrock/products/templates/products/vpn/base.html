@@ -14,17 +14,15 @@
 {% block page_ios_icon %}{{ static('img/favicons/vpn/favicon.png') }}{% endblock %}
 
 {% block sub_navigation %}
-  {% include 'products/vpn/includes/subnav.html' %}
+  {% include 'products/vpn/includes/subnav-refresh.html' %}
 {% endblock %}
 
 {% block site_css %}
   {{ super() }}
 {% endblock %}
 
-{% block js %}
-
-{% endblock %}
+{% block js %}{% endblock %}
 
 {% block third_party_js %}
-  <script async src="https://js.stripe.com/v3/"></script>
+  {{ js_bundle('stripe') }}
 {% endblock %}

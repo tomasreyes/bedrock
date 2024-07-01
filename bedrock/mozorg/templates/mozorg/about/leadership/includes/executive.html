@@ -15,7 +15,19 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
   <div class="gallery mgmt-corp">
     <article id="laura-chambers" data-id="laura-chambers" class="vcard has-bio" itemscope itemtype="http://schema.org/Person">
       <figure class="headshot">
-        <img class="photo" src="{{ static('img/mozorg/about/leadership/laura-chambers.jpg') }}" alt="" itemprop="image" width="160" height="160">
+        {{ resp_img(
+          url='img/mozorg/about/leadership/laura-chambers.jpg',
+          srcset={
+            'img/mozorg/about/leadership/laura-chambers-high-res.jpg': '2x'
+          },
+          optional_attributes={
+            'width': '160',
+            'height': '160',
+            'class': 'photo',
+            'itemprop': 'image',
+            'alt': 'Headshot of Laura Chambers, Chief Executive Officer'
+          }
+        ) }}
         <figcaption><h4 class="fn" itemprop="name">Laura Chambers</h4></figcaption>
       </figure>
 
@@ -23,6 +35,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         <p class="title" itemprop="jobTitle">Chief Executive Officer</p>
 
         <ul class="utility">
+          <li><a class="file" rel="external"
+            href="https://assets.mozilla.net/leadership/mozilla-laura-chambers.zip">Download photos</a></li>
           <li><a class="link" href="{{ url('mozorg.about.leadership.index') }}#laura-chambers">Link to this bio</a></li>
         </ul>
       </div>
@@ -76,7 +90,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
       </div>
     </article>
 
-      <article id="ian-carmichael" data-id="ian-carmichael" class="vcard has-bio" itemscope itemtype="http://schema.org/Person">
+    <article id="ian-carmichael" data-id="ian-carmichael" class="vcard has-bio" itemscope itemtype="http://schema.org/Person">
     <figure class="headshot">
       {{ resp_img(
         url='img/mozorg/about/leadership/ian-carmichael.jpg',
@@ -87,7 +101,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
           'width': '160',
           'height': '160',
           'class': 'photo',
-          'itemprop': 'image'
+          'itemprop': 'image',
+          'alt': 'Headshot of Ian Carmichael, SVP of Firefox'
         }
       ) }}
       <figcaption><h4 class="fn" itemprop="name">Ian Carmichael</h4></figcaption>
@@ -136,7 +151,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         'width': '160',
         'height': '160',
         'class': 'photo',
-        'itemprop': 'image'
+        'itemprop': 'image',
+        'alt': 'Headshot of Dani Chehak, Chief People Officer'
         }
         ) }}
         <figcaption>
@@ -161,7 +177,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         'width': '160',
         'height': '160',
         'class': 'photo',
-        'itemprop': 'image'
+        'itemprop': 'image',
+        'alt': 'Headshot of Eric Muhlheim, Chief Financial Officer'
         }
         ) }}
         <figcaption>
@@ -222,7 +239,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         'width': '160',
         'height': '160',
         'class': 'photo',
-        'itemprop': 'image'
+        'itemprop': 'image',
+        'alt': 'Headshot of Lindsey O’Brien, Chief Marketing Officer'
         }
         ) }}
         <figcaption>
@@ -277,7 +295,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         'width': '160',
         'height': '160',
         'class': 'photo',
-        'itemprop': 'image'
+        'itemprop': 'image',
+        'alt': 'Headshot of Steve Teixeira, Chief Product Officer'
         }
         ) }}
         <figcaption>
@@ -341,7 +360,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         'width': '160',
         'height': '160',
         'class': 'photo',
-        'itemprop': 'image'
+        'itemprop': 'image',
+        'alt': 'Headshot of Carlos Torres, Chief Legal Officer'
         }
         ) }}
         <figcaption>
@@ -388,7 +408,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
         'width': '160',
         'height': '160',
         'class': 'photo',
-        'itemprop': 'image'
+        'itemprop': 'image',
+        'alt': 'Headshot of Imo Udom, SVP of Innovation Ecosystems'
         }
         ) }}
         <figcaption>
@@ -446,7 +467,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
           'width': '160',
           'height': '160',
           'class': 'photo',
-          'itemprop': 'image'
+          'itemprop': 'image',
+          'alt': 'Headshot of Suba Vasudevan, SVP of Strategy and Operations'
         }
       ) }}
       <figcaption><h4 class="fn" itemprop="name">Suba Vasudevan</h4></figcaption>

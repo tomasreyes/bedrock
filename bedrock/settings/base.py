@@ -13,15 +13,20 @@ import struct
 import sys
 from os.path import abspath
 from pathlib import Path
+from urllib.parse import urlparse
 
+from django.conf.locale import LANG_INFO  # we patch this in bedrock.base.apps.BaseAppConfig  # noqa: F401
 from django.utils.functional import lazy
 
+import dj_database_url
 import markus
 import sentry_sdk
 from everett.manager import ListOf
 from sentry_processor import DesensitizationProcessor
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.logging import ignore_logger
+from sentry_sdk.integrations.redis import RedisIntegration
+from sentry_sdk.integrations.rq import RqIntegration
 
 from bedrock.base.config_manager import config
 from bedrock.contentful.constants import (
@@ -54,13 +59,40 @@ DEV = config("DEV", parser=bool, default="false")
 PROD = config("PROD", parser=bool, default="false")
 
 DEBUG = config("DEBUG", parser=bool, default="false")
+
+site_mode = config("SITE_MODE", default="Mozorg")
+
+IS_POCKET_MODE = site_mode == "Pocket"
+IS_MOZORG_MODE = not IS_POCKET_MODE
+
+db_connection_max_age_secs = config("DB_CONN_MAX_AGE", default="0", parser=int)
+db_conn_health_checks = config("DB_CONN_HEALTH_CHECKS", default="False", parser=bool)
+db_default_url = config(
+    "DATABASE_URL",
+    default=f"sqlite:////{data_path('bedrock.db')}",
+)
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": data_path("bedrock.db"),
-    },
+    "default": dj_database_url.parse(
+        db_default_url,
+        conn_max_age=db_connection_max_age_secs,
+        conn_health_checks=db_conn_health_checks,
+    )
 }
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+TASK_QUEUE_AVAILABLE = False
+RQ_QUEUES = {}
+
+REDIS_URL = config("REDIS_URL", default="")
+if REDIS_URL:
+    TASK_QUEUE_AVAILABLE = True
+    REDIS_URL = REDIS_URL.rstrip("/0")
+    RQ_QUEUES = {
+        # Same Redis DBs/connections
+        "default": {"URL": f"{REDIS_URL}/0"},
+        "image_renditions": {"URL": f"{REDIS_URL}/0"},
+    }
 
 CACHES = {
     "default": {
@@ -104,7 +136,7 @@ TIME_ZONE = config("TIME_ZONE", default="America/Los_Angeles")
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
-USE_I18N = False
+USE_I18N = True
 
 # If you set this to False, Django will not format dates, numbers and
 # calendars according to the current locale
@@ -222,8 +254,16 @@ LOCALES_BY_REGION = {
     "Middle East and Africa": ["ach", "af", "ar", "az", "fa", "ff", "gu-IN", "he", "kab", "kn", "skr", "son", "xh"],
 }
 
+
+def _put_default_lang_first(langs, default_lang=LANGUAGE_CODE):
+    if langs.index(default_lang):
+        langs.pop(langs.index(default_lang))
+    langs.insert(0, default_lang)
+    return langs
+
+
 # Our accepted production locales are the values from the above, plus an exception.
-PROD_LANGUAGES = sorted(sum(LOCALES_BY_REGION.values(), []) + ["ja-JP-mac"])
+PROD_LANGUAGES = _put_default_lang_first(sorted(sum(LOCALES_BY_REGION.values(), [])) + ["ja-JP-mac"])
 
 GITHUB_REPO = "https://github.com/mozilla/bedrock"
 
@@ -232,7 +272,7 @@ GITHUB_REPO = "https://github.com/mozilla/bedrock"
 
 # Global L10n files.
 FLUENT_DEFAULT_FILES = [
-    "affiliate",
+    "banners/consent-banner",
     "banners/firefox-app-store",
     "brands",
     "download_button",
@@ -298,6 +338,11 @@ EXCLUDE_EDIT_TEMPLATES = [
     "security/product-advisories.html",
     "security/known-vulnerabilities.html",
 ]
+# Also allow entire directories to be skipped
+EXCLUDE_EDIT_TEMPLATES_DIRECTORIES = [
+    "cms",
+]
+
 IGNORE_LANG_DIRS = [
     ".git",
     "configs",
@@ -313,8 +358,8 @@ def get_dev_languages():
         return list(PROD_LANGUAGES)
 
 
-DEV_LANGUAGES = get_dev_languages()
-DEV_LANGUAGES.append("en-US")
+DEV_LANGUAGES = _put_default_lang_first(get_dev_languages())
+
 
 # Map short locale names to long, preferred locale names. This
 # will be used in urlresolvers to determine the
@@ -322,14 +367,14 @@ DEV_LANGUAGES.append("en-US")
 CANONICAL_LOCALES = {
     "en": "en-US",
     "es": "es-ES",
-    "ja-jp-mac": "ja",
+    "ja-JP-mac": "ja",
     "no": "nb-NO",
     "pt": "pt-BR",
     "sv": "sv-SE",
-    "zh-hant": "zh-TW",  # Bug 1263193
-    "zh-hant-tw": "zh-TW",  # Bug 1263193
-    "zh-hk": "zh-TW",  # Bug 1338072
-    "zh-hant-hk": "zh-TW",  # Bug 1338072
+    "zh-Hant": "zh-TW",  # Bug 1263193
+    "zh-Hant-TW": "zh-TW",  # Bug 1263193
+    "zh-HK": "zh-TW",  # Bug 1338072
+    "zh-Hant-HK": "zh-TW",  # Bug 1338072
 }
 
 # Unlocalized pages are usually redirected to the English (en-US) equivalent,
@@ -366,7 +411,7 @@ def lazy_lang_url_map():
     from django.conf import settings
 
     langs = settings.DEV_LANGUAGES if settings.DEV else settings.PROD_LANGUAGES
-    return {i.lower(): i for i in langs}
+    return {i: i for i in langs}
 
 
 def lazy_langs():
@@ -374,7 +419,12 @@ def lazy_langs():
     Override Django's built-in with our native names
 
     Note: Unlike the above lazy methods, this one returns a list of tuples to
-    match Django's expectations.
+    match Django's expectations, BUT it has mixed-case lang codes, rather
+    than core Django's all-lowercase codes. This is because we work with
+    mixed-case codes and we'll need them in LANGUAGES when we use
+    Wagtail-Localize, as that has to be configured with a subset of LANGUAGES
+
+    :return: list of tuples
 
     """
     from django.conf import settings
@@ -382,11 +432,33 @@ def lazy_langs():
     from product_details import product_details
 
     langs = DEV_LANGUAGES if settings.DEV else settings.PROD_LANGUAGES
-    return [(lang.lower(), product_details.languages[lang]["native"]) for lang in langs if lang in product_details.languages]
+
+    return [(lang, product_details.languages[lang]["native"]) for lang in langs if lang in product_details.languages]
+
+
+def language_url_map_with_fallbacks():
+    """
+    Return a complete dict of language -> URL mappings, including the canonical
+    short locale maps (e.g. es -> es-ES and en -> en-US), as well as fallback
+    mappings for language variations we don't support directly but via a nearest
+    match
+
+    :return: dict
+    """
+    lum = lazy_lang_url_map()
+    langs = dict(list(lum.items()) + list(CANONICAL_LOCALES.items()))
+    # Add missing short locales to the list. By default, this will automatically
+    # map en to en-GB (not en-US), etc. in alphabetical order.
+    # To override this behavior, explicitly define a preferred locale
+    # map with the CANONICAL_LOCALES setting.
+    langs.update((k.split("-")[0], v) for k, v in lum.items() if k.split("-")[0] not in langs)
+
+    return langs
 
 
 LANG_GROUPS = lazy(lazy_lang_group, dict)()
 LANGUAGE_URL_MAP = lazy(lazy_lang_url_map, dict)()
+LANGUAGE_URL_MAP_WITH_FALLBACKS = lazy(language_url_map_with_fallbacks, dict)()  # used in normalize_language
 LANGUAGES = lazy(lazy_langs, list)()
 
 FEED_CACHE = 3900
@@ -397,38 +469,38 @@ DOTLANG_CACHE = config("DOTLANG_CACHE", default="1800" if DEBUG else "600", pars
 DEV_GEO_COUNTRY_CODE = config("DEV_GEO_COUNTRY_CODE", default="US")
 
 # Paths that don't require a locale code in the URL.
-# matches the first url component (e.g. mozilla.org/gameon/)
+# matches the first url component (e.g. mozilla.org/credits)
 SUPPORTED_NONLOCALES = [
     # from redirects.urls
     "media",
     "static",
     "certs",
-    "images",
-    "contribute.json",
-    "credits",
-    "gameon",
-    "robots.txt",
-    ".well-known",
-    "telemetry",
-    "webmaker",
-    "contributor-data",
-    "healthz",
-    "readiness",
-    "healthz-cron",
-    "2004",
-    "2005",
-    "2006",
-    "keymaster",
-    "microsummaries",
-    "xbl",
-    "revision.txt",
-    "locales",
-    "sitemap_none.xml",
+    "images",  # root_files
+    "credits",  # in mozorg urls
+    "robots.txt",  # in mozorg urls
+    ".well-known",  # in mozorg urls
+    "telemetry",  # redirect only
+    "webmaker",  # redirect only
+    "healthz",  # Needed for k8s
+    "readiness",  # Needed for k8s
+    "healthz-cron",  # status dash, in urls/mozorg_mode.py
+    "2004",  # in mozorg urls
+    "2005",  # in mozorg urls
+    "2006",  # in mozorg urls
+    "keymaster",  # in mozorg urls
+    "microsummaries",  # in mozorg urls
+    "xbl",  # in mozorg urls
+    "revision.txt",  # from root_files
+    "locales",  # in mozorg urls
+    "csrf_403",
 ]
+
 # Paths that can exist either with or without a locale code in the URL.
 # Matches the whole URL path
-SUPPORTED_LOCALE_IGNORE = ["/sitemap.xml"]
-
+SUPPORTED_LOCALE_IGNORE = [
+    "/sitemap_none.xml",  # in sitemap urls
+    "/sitemap.xml",  # in sitemap urls
+]
 # Pages that we don't want to be indexed by search engines.
 # Only impacts sitemap generator. If you need to disallow indexing of
 # specific URLs, add them to mozorg/templates/mozorg/robots.txt.
@@ -436,6 +508,8 @@ NOINDEX_URLS = [
     r"^(404|500)/",
     r"^firefox/welcome/",
     r"^contribute/(embed|event)/",
+    r"^cms-admin/",
+    r"^django-admin/",
     r"^firefox/set-as-default/thanks/",
     r"^firefox/unsupported/",
     r"^firefox/(sms-)?send-to-device-post",
@@ -495,17 +569,87 @@ CANONICAL_URL = "https://www.mozilla.org"
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = config("SECRET_KEY", default="ssssshhhhh")
 
-MEDIA_URL = config("MEDIA_URL", default="/user-media/")
-MEDIA_ROOT = config("MEDIA_ROOT", default=path("media"))
+# If config is available, we use Google Cloud Storage, else (for local dev)
+# fall back to filesytem storage
+
+GS_BUCKET_NAME = config("GS_BUCKET_NAME", default="", parser=str)
+GS_PROJECT_ID = config("GS_PROJECT_ID", default="", parser=str)
+
+STORAGES = {
+    # In production only the CMS/Editing deployment has write access
+    # to the cloud storage bucket. As such, be careful if you introduce
+    # file uploads to other parts of Bedrock that use "default" storage -
+    # it will not allow uploads for the Web deployment. You will have to
+    # specify a different, dedicated storage backend for the file-upload process.
+    "default": {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage"
+        if GS_BUCKET_NAME and GS_PROJECT_ID
+        else "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if DEBUG
+        else "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+    },
+}
+
+MEDIA_URL = config("MEDIA_URL", default="/custom-media/")
+MEDIA_ROOT = config("MEDIA_ROOT", default=path("custom-media"))
 STATIC_URL = config("STATIC_URL", default="/media/")
 STATIC_ROOT = config("STATIC_ROOT", default=path("static"))
-STATICFILES_STORAGE = (
-    "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG else "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
-)
-STATICFILES_FINDERS = ("django.contrib.staticfiles.finders.FileSystemFinder",)
 STATICFILES_DIRS = (path("assets"),)
+STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+]
 if DEBUG:
     STATICFILES_DIRS += (path("media"),)
+
+GS_OBJECT_PARAMETERS = {
+    "cache_control": "max-age=2592000, public, immutable"  # 2592000 == 30 days / 1 month
+}
+
+
+def _get_media_cdn_hostname_for_storage_backend(media_url):
+    # settings.MEDIA_URL (passed in here as media_url) is a custom route on our CDN
+    # that points to a cloud bucket, which we use for uploaded media from the CMS.
+    #
+    # Specifically, due to infra constraints, it has to point to a _sub-path_ in the bucket,
+    # not the top/root of it. It also needs to be distinct from the CDN route that points to our
+    # collected static assets (which are at https://<CDN_HOSTNAME>/media/ - that is STATIC_URL)
+    #
+    # With all this in mind, MEDIA_URL, when set, points to https://<CDN_HOSTNAME>/media/cms/
+    #
+    # When django-storages computes the URL for a object in that CMS bucket, it wants
+    # just the hostname of the bucket, not the full CDN/proxy path to the subdir in the bucket,
+    # because it opinionatedly concatenates it with GS_LOCATION (defined below, which ensures
+    # the files are uploaded to the sub-path mentioned above).
+    #
+    # TLDR: We just need the root of the CDN, from MEDIA_URL.
+
+    if media_url.startswith("http"):
+        media_url_parsed = urlparse(media_url)
+        media_cdn_hostname = f"{media_url_parsed.scheme}://{media_url_parsed.hostname}"
+    else:
+        media_cdn_hostname = media_url
+
+    return media_cdn_hostname
+
+
+if GS_BUCKET_NAME and GS_PROJECT_ID:
+    GS_CUSTOM_ENDPOINT = _get_media_cdn_hostname_for_storage_backend(MEDIA_URL)  # hostname that proxies the storage bucket
+    GS_FILE_OVERWRITE = False
+    GS_LOCATION = "media/cms"  # path within the bucket to upload to
+
+    # The GCS bucket has a uniform policy (public read, authenticated write) so we don't want
+    # to try to sign URLs with querystrings here, as that will cause GCS to respond with
+    # 400 Bad Request because signed URLs are not compatible with uniform access control.
+    # See the notes for https://django-storages.readthedocs.io/en/latest/backends/gcloud.html#gs-default-acl
+    GS_QUERYSTRING_AUTH = False
+else:
+    SUPPORTED_NONLOCALES += [
+        "custom-media",  # using local filesystem storage (for dev)
+    ]
 
 
 def set_whitenoise_headers(headers, path, url):
@@ -554,31 +698,37 @@ BASIC_AUTH_CREDS = config("BASIC_AUTH_CREDS", default="")
 ENABLE_METRICS_VIEW_TIMING_MIDDLEWARE = config("ENABLE_METRICS_VIEW_TIMING_MIDDLEWARE", default="false", parser=bool)
 
 MIDDLEWARE = [
+    # IMPORTANT: this may be extended later in this file or via settings/__init__.py
     "allow_cidr.middleware.AllowCIDRMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "bedrock.mozorg.middleware.HostnameMiddleware",
     "django.middleware.http.ConditionalGetMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    # VaryNoCacheMiddleware must be above LocaleMiddleware"
+    # so that it can see the response has a vary on accept-language.
     "bedrock.mozorg.middleware.VaryNoCacheMiddleware",
     "bedrock.base.middleware.BasicAuthMiddleware",
-    # must come before LocaleURLMiddleware
-    "bedrock.redirects.middleware.RedirectsMiddleware",
-    "bedrock.base.middleware.LocaleURLMiddleware",
+    "bedrock.redirects.middleware.RedirectsMiddleware",  # must come before BedrockLocaleMiddleware
+    "bedrock.base.middleware.BedrockLangCodeFixupMiddleware",  # must come after RedirectsMiddleware
+    "bedrock.base.middleware.BedrockLocaleMiddleware",  # wraps django.middleware.locale.LocaleMiddleware
     "bedrock.mozorg.middleware.ClacksOverheadMiddleware",
     "bedrock.base.middleware.MetricsStatusMiddleware",
     "bedrock.base.middleware.MetricsViewTimingMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "bedrock.mozorg.middleware.CacheMiddleware",
+    "wagtail.contrib.redirects.middleware.RedirectMiddleware",
 ]
 
 ENABLE_CSP_MIDDLEWARE = config("ENABLE_CSP_MIDDLEWARE", default="true", parser=bool)
 if ENABLE_CSP_MIDDLEWARE:
-    MIDDLEWARE.append("csp.middleware.CSPMiddleware")
+    MIDDLEWARE.append("bedrock.base.middleware.CSPMiddlewareByPathPrefix")
 
 INSTALLED_APPS = [
     # Django contrib apps
+    "django.contrib.sessions",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
@@ -591,8 +741,25 @@ INSTALLED_APPS = [
     "django_jinja_markdown",
     "django_jinja",
     "watchman",
+    # Wagtail CMS and related, necessary apps
+    "wagtail.contrib.redirects",
+    "wagtail.documents",
+    "wagtail.embeds",
+    "wagtail.sites",
+    "wagtail.users",
+    "wagtail.snippets",
+    "wagtail.images",
+    "wagtail_localize",
+    "wagtail_localize.locales",  # This replaces "wagtail.locales"
+    "wagtail.search",
+    "wagtail.admin",
+    "wagtail",
+    "modelcluster",
+    "taggit",
+    "csp",
     # Local apps
     "bedrock.base",
+    "bedrock.cms",  # Wagtail-based CMS bases
     "bedrock.firefox",
     "bedrock.foundation",
     "bedrock.legal",
@@ -618,6 +785,8 @@ INSTALLED_APPS = [
     # libs
     "django_extensions",
     "lib.l10n_utils",
+    "django_rq",
+    "mozilla_django_oidc",  # needs to be loaded after django.contrib.auth
 ]
 
 # Must match the list at CloudFlare if the
@@ -645,7 +814,6 @@ DISABLE_SSL = config("DISABLE_SSL", default="true", parser=bool)
 SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default="strict-origin-when-cross-origin")
 SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default="0", parser=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-SECURE_BROWSER_XSS_FILTER = config("SECURE_BROWSER_XSS_FILTER", default="true", parser=bool)
 SECURE_CONTENT_TYPE_NOSNIFF = config("SECURE_CONTENT_TYPE_NOSNIFF", default="true", parser=bool)
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=str(not DISABLE_SSL), parser=bool)
 SECURE_REDIRECT_EXEMPT = [
@@ -664,10 +832,16 @@ WATCHMAN_CHECKS = (
     "watchman.checks.databases",
 )
 
+
+def _is_bedrock_custom_app(app_name):
+    return app_name.startswith("bedrock.")
+
+
 TEMPLATES = [
     {
         "BACKEND": "django_jinja.jinja2.Jinja2",
-        "APP_DIRS": True,
+        "APP_DIRS": False,
+        "DIRS": [f"bedrock/{name.split('.')[1]}/templates" for name in INSTALLED_APPS if _is_bedrock_custom_app(name)],
         "OPTIONS": {
             "match_extension": None,
             "finalize": lambda x: x if x is not None else "",
@@ -684,7 +858,6 @@ TEMPLATES = [
                 "bedrock.mozorg.context_processors.contrib_numbers",
                 "bedrock.mozorg.context_processors.current_year",
                 "bedrock.mozorg.context_processors.funnelcake_param",
-                "bedrock.mozorg.context_processors.facebook_locale",
                 "bedrock.firefox.context_processors.latest_firefox_versions",
             ],
             "extensions": [
@@ -695,6 +868,26 @@ TEMPLATES = [
                 "django_jinja.builtins.extensions.StaticFilesExtension",
                 "django_jinja.builtins.extensions.DjangoFiltersExtension",
                 "django_jinja_markdown.extensions.MarkdownExtension",
+                "wagtail.jinja2tags.core",
+                "wagtail.images.jinja2tags.images",
+            ],
+        },
+    },
+    {
+        # Wagtail needs the standard Django template backend
+        # https://docs.wagtail.org/en/stable/reference/jinja2.html#configuring-django
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "APP_DIRS": True,
+        "DIRS": [
+            "bedrock/admin/templates",
+        ],
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "wagtail.contrib.settings.context_processors.settings",
             ],
         },
     },
@@ -758,6 +951,8 @@ MESSAGE_STORAGE = "django.contrib.messages.storage.cookie.CookieStorage"
 
 default_email_backend = "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend"
 
+DEFAULT_FROM_EMAIL = "Mozilla.com <noreply@mozilla.com>"
+
 EMAIL_BACKEND = config("EMAIL_BACKEND", default=default_email_backend)
 EMAIL_HOST = config("EMAIL_HOST", default="localhost")
 EMAIL_PORT = config("EMAIL_PORT", default="25", parser=int)
@@ -777,88 +972,6 @@ EXTERNAL_FILES = {
     },
 }
 
-# Facebook Like button supported locales
-# https://www.facebook.com/translations/FacebookLocales.xml
-FACEBOOK_LIKE_LOCALES = [
-    "af_ZA",
-    "ar_AR",
-    "az_AZ",
-    "be_BY",
-    "bg_BG",
-    "bn_IN",
-    "bs_BA",
-    "ca_ES",
-    "cs_CZ",
-    "cy_GB",
-    "da_DK",
-    "de_DE",
-    "el_GR",
-    "en_GB",
-    "en_PI",
-    "en_UD",
-    "en_US",
-    "eo_EO",
-    "es_ES",
-    "es_LA",
-    "et_EE",
-    "eu_ES",
-    "fa_IR",
-    "fb_LT",
-    "fi_FI",
-    "fo_FO",
-    "fr_CA",
-    "fr_FR",
-    "fy_NL",
-    "ga_IE",
-    "gl_ES",
-    "he_IL",
-    "hi_IN",
-    "hr_HR",
-    "hu_HU",
-    "hy_AM",
-    "id_ID",
-    "is_IS",
-    "it_IT",
-    "ja_JP",
-    "ka_GE",
-    "km_KH",
-    "ko_KR",
-    "ku_TR",
-    "la_VA",
-    "lt_LT",
-    "lv_LV",
-    "mk_MK",
-    "ml_IN",
-    "ms_MY",
-    "nb_NO",
-    "ne_NP",
-    "nl_NL",
-    "nn_NO",
-    "pa_IN",
-    "pl_PL",
-    "ps_AF",
-    "pt_BR",
-    "pt_PT",
-    "ro_RO",
-    "ru_RU",
-    "sk_SK",
-    "sl_SI",
-    "sq_AL",
-    "sr_RS",
-    "sv_SE",
-    "sw_KE",
-    "ta_IN",
-    "te_IN",
-    "th_TH",
-    "tl_PH",
-    "tr_TR",
-    "uk_UA",
-    "vi_VN",
-    "zh_CN",
-    "zh_HK",
-    "zh_TW",
-]
-
 # Prefix for media. No trailing slash.
 # e.g. '//mozorg.cdn.mozilla.net'
 CDN_BASE_URL = config("CDN_BASE_URL", default="")
@@ -872,23 +985,7 @@ FXA_NEWSLETTERS = [
 ]
 FXA_NEWSLETTERS_LOCALES = ["en", "de", "fr"]
 
-# Regional press blogs map to locales
-PRESS_BLOG_ROOT = "https://blog.mozilla.org/"
-PRESS_BLOGS = {
-    "de": "press-de/",
-    "en-GB": "press-uk/",
-    "en-US": "press/",
-    "es-AR": "press-es/",
-    "es-CL": "press-es/",
-    "es-ES": "press-es/",
-    "es-MX": "press-es/",
-    "fr": "press-fr/",
-    "it": "press-it/",
-    "pl": "press-pl/",
-    "pt-BR": "press-br/",
-}
-
-DONATE_LINK = "https://foundation.mozilla.org/?form=donate&c_id=7014x000000eQOH&utm_source=mozilla.org&utm_medium=referral&utm_campaign=moco{content}"
+DONATE_LINK = "https://foundation.mozilla.org/{location}"
 
 # Official Firefox Twitter accounts
 FIREFOX_TWITTER_ACCOUNTS = {
@@ -927,7 +1024,6 @@ from .appstores import (  # noqa: E402, F401
     APPLE_APPSTORE_POCKET_LINK,
     GOOGLE_PLAY_FIREFOX_BETA_LINK,
     GOOGLE_PLAY_FIREFOX_LINK,
-    GOOGLE_PLAY_FIREFOX_LINK_MOZILLAONLINE,
     GOOGLE_PLAY_FIREFOX_LINK_UTMS,
     GOOGLE_PLAY_FIREFOX_NIGHTLY_LINK,
     GOOGLE_PLAY_FIREFOX_SEND_LINK,
@@ -942,15 +1038,6 @@ SEND_TO_DEVICE_LOCALES = ["de", "en-GB", "en-US", "es-AR", "es-CL", "es-ES", "es
 SEND_TO_DEVICE_MESSAGE_SETS = {
     "default": {
         "email": {
-            "android": "download-firefox-android",
-            "ios": "download-firefox-ios",
-            "all": "download-firefox-mobile",
-        }
-    },
-    "fx-android": {
-        "email": {
-            "android": "get-android-embed",
-            "ios": "download-firefox-ios",
             "all": "download-firefox-mobile",
         }
     },
@@ -961,32 +1048,12 @@ SEND_TO_DEVICE_MESSAGE_SETS = {
     },
     "fx-whatsnew": {
         "email": {
-            "all": "download-firefox-mobile-whatsnew",
-        }
-    },
-    "fx-focus": {
-        "email": {
-            "all": "download-focus-mobile-whatsnew",
-        }
-    },
-    "fx-klar": {
-        "email": {
-            "all": "download-klar-mobile-whatsnew",
-        }
-    },
-    "download-firefox-rocket": {
-        "email": {
-            "all": "download-firefox-rocket",
+            "all": "download-firefox-mobile",
         }
     },
     "firefox-mobile-welcome": {
         "email": {
             "all": "firefox-mobile-welcome",
-        }
-    },
-    "lockwise-welcome-download": {
-        "email": {
-            "all": "lockwise-welcome-download",
         }
     },
 }
@@ -1085,6 +1152,10 @@ LOGGING = {
             "handlers": ["console"],
             "propagate": False,
         },
+        "mozilla_django_oidc": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
     },
 }
 
@@ -1164,7 +1235,7 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         release=config("GIT_SHA", default=""),
         server_name=".".join(x for x in [APP_NAME, CLUSTER_NAME] if x),
-        integrations=[DjangoIntegration()],
+        integrations=[DjangoIntegration(), RedisIntegration(), RqIntegration()],
         before_send=before_send,
     )
 
@@ -1176,7 +1247,7 @@ SENTRY_FRONTEND_DSN = config(
 )
 
 # Statsd metrics via markus
-if DEBUG:
+if DEBUG and not config("DISABLE_LOCAL_MARKUS", default="False", parser=bool):
     MARKUS_BACKENDS = [
         {"class": "markus.backends.logging.LoggingMetrics", "options": {"logger_name": "metrics"}},
     ]
@@ -1208,6 +1279,44 @@ markus.configure(backends=MARKUS_BACKENDS)
 # FUNNELCAKE_103_LOCALES=de,fr,en-US
 #
 # where "103" in the variable name is the funnelcake ID.
+
+# Countries that need to see cookie banner
+# See https://www.gov.uk/eu-eea
+
+DATA_CONSENT_COUNTRIES = [
+    "AT",  # Austria
+    "BE",  # Belgium
+    "BG",  # Bulgaria
+    "HR",  # Croatia
+    "CY",  # Republic of Cyprus
+    "CZ",  # Czech Republic
+    "DK",  # Denmark
+    "EE",  # Estonia
+    "FI",  # Finland
+    "FR",  # France
+    "DE",  # Germany
+    "GR",  # Greece
+    "HU",  # Hungary
+    "IE",  # Ireland
+    "IS",  # Iceland
+    "IT",  # Italy
+    "LV",  # Latvia
+    "LI",  # Liechtenstein
+    "LT",  # Lithuania
+    "LU",  # Luxembourg
+    "MT",  # Malta
+    "NL",  # Netherlands
+    "NO",  # Norway
+    "PL",  # Poland
+    "PT",  # Portugal
+    "RO",  # Romania
+    "SK",  # Slovakia
+    "SI",  # Slovenia
+    "ES",  # Spain
+    "SE",  # Sweden
+    "CH",  # Switzerland
+    "GB",  # United Kingdom
+]
 
 # VPN ==========================================================================================
 
@@ -1869,3 +1978,161 @@ VPN_SUPPORTED_LOCALES = [
 RELAY_PRODUCT_URL = config(
     "RELAY_PRODUCT_URL", default="https://stage.fxprivaterelay.nonprod.cloudops.mozgcp.net/" if DEV else "https://relay.firefox.com/"
 )
+
+
+# Authentication with Mozilla OpenID Connect / Auth0 ============================================
+
+LOGIN_ERROR_URL = "/cms-admin/"
+LOGIN_REDIRECT_URL_FAILURE = "/cms-admin/"
+LOGIN_REDIRECT_URL = "/cms-admin/"
+LOGOUT_REDIRECT_URL = "/cms-admin/"
+
+OIDC_RP_SIGN_ALGO = "RS256"
+
+# How frequently do we check with the provider that the user still exists and is authorised?
+OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS = config(
+    "OIDC_RENEW_ID_TOKEN_EXPIRY_SECONDS",
+    default="64800",  # 18 hours
+    parser=int,
+)
+
+OIDC_CREATE_USER = False  # We don't want drive-by signups
+
+OIDC_RP_CLIENT_ID = config("OIDC_RP_CLIENT_ID", default="", parser=str)
+OIDC_RP_CLIENT_SECRET = config("OIDC_RP_CLIENT_SECRET", default="", parser=str)
+
+OIDC_OP_AUTHORIZATION_ENDPOINT = "https://auth.mozilla.auth0.com/authorize"
+OIDC_OP_TOKEN_ENDPOINT = "https://auth.mozilla.auth0.com/oauth/token"
+OIDC_OP_USER_ENDPOINT = "https://auth.mozilla.auth0.com/userinfo"
+OIDC_OP_DOMAIN = "auth.mozilla.auth0.com"
+OIDC_OP_JWKS_ENDPOINT = "https://auth.mozilla.auth0.com/.well-known/jwks.json"
+
+# If True (which should only be for local work in your .env), then show
+# username and password fields when signing up, not the SSO button
+USE_SSO_AUTH = config("USE_SSO_AUTH", default="True", parser=bool)
+
+if USE_SSO_AUTH:
+    AUTHENTICATION_BACKENDS = (
+        # Deliberately OIDC only, else no entry by any other means
+        "mozilla_django_oidc.auth.OIDCAuthenticationBackend",
+    )
+else:
+    AUTHENTICATION_BACKENDS = (
+        # Regular username + password auth
+        "django.contrib.auth.backends.ModelBackend",
+    )
+
+# Note that AUTHENTICATION_BACKENDS is overridden in tests, so take care
+# to check/amend those if you add additional auth backends
+
+# Extra Wagtail config to disable password usage (SSO should be the only route)
+# https://docs.wagtail.org/en/v4.2.4/reference/settings.html#wagtail-password-management-enabled
+# Don't let users change or reset their password
+if USE_SSO_AUTH:
+    WAGTAIL_PASSWORD_MANAGEMENT_ENABLED = False
+    WAGTAIL_PASSWORD_RESET_ENABLED = False
+
+    # Don't require a password when creating a user,
+    # and blank password means cannot log in unless via SSO
+    WAGTAILUSERS_PASSWORD_ENABLED = False
+
+# Custom CSRF failure view to show custom CSRF messaging, which is
+# more likely to appear with SSO auth enabled, when sessions expire
+CSRF_FAILURE_VIEW = "bedrock.base.views.csrf_failure"
+
+# WAGTAIL =======================================================================================
+
+WAGTAIL_SITE_NAME = config(
+    "WAGTAIL_SITE_NAME",
+    default="Mozilla.org",
+)
+
+# Disable use of Gravatar URLs.
+# Important: if this is enabled in the future, make sure you redact the
+# `wagtailusers_profile.avatar` column when exporting the DB to sqlite
+WAGTAIL_GRAVATAR_PROVIDER_URL = None
+
+WAGTAILADMIN_BASE_URL = config(
+    "WAGTAILADMIN_BASE_URL",
+    default="",
+)
+
+# We're sticking to LTS releases of Wagtail, so we don't want to be told there's a new version if that's not LTS
+WAGTAIL_ENABLE_UPDATE_CHECK = False
+
+# Custom setting (not a Wagtail core one) that we use to plug in/unplug the admin UI entirely
+WAGTAIL_ENABLE_ADMIN = config(
+    "WAGTAIL_ENABLE_ADMIN",
+    default="False",
+    parser=bool,
+)
+
+if WAGTAIL_ENABLE_ADMIN:
+    # Enable Middleware essential for admin
+
+    INSTALLED_APPS += [
+        # django.contrib.admin needs SessionMiddleware and AuthenticationMiddleware to be specced, and fails
+        # hard if it's in INSTALLED_APPS when they are not, so we have to defer adding it till here
+        "django.contrib.admin",
+    ]
+
+    for midddleware_spec in [
+        "mozilla_django_oidc.middleware.SessionRefresh",  # In case someone has their Auth0 revoked while logged in, revalidate it
+        "django.middleware.csrf.CsrfViewMiddleware",
+        "django.contrib.auth.middleware.AuthenticationMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+    ]:
+        MIDDLEWARE.insert(3, midddleware_spec)
+
+    SUPPORTED_NONLOCALES.extend(
+        [
+            "cms-admin",
+            "django-admin",
+            "django-rq",
+            "oidc",
+        ]
+    )
+
+
+def lazy_wagtail_langs():
+    enabled_wagtail_langs = [
+        ("en-US", "English"),
+        # TODO: expand to other locales supported by our translation vendor
+        # ("de", "Deutsch"),
+        ("fr", "Français"),
+        # ("es", "Español"),
+        # ("es", "Español mexicano"),
+        # ("it", "Italiano"),
+        # more to come
+    ]
+    enabled_language_codes = [x[0] for x in LANGUAGES]
+    retval = [wagtail_lang for wagtail_lang in enabled_wagtail_langs if wagtail_lang[0] in enabled_language_codes]
+    return retval
+
+
+WAGTAIL_I18N_ENABLED = True
+if IS_MOZORG_MODE:
+    WAGTAIL_CONTENT_LANGUAGES = lazy(lazy_wagtail_langs, list)()
+else:
+    # Note: we'll never actually use this as Pocket mode won't be
+    # Wagtailed, but we need something valid so Pocket mode will boot up
+    WAGTAIL_CONTENT_LANGUAGES = [("en", "English")]
+
+# Custom settings, not a core Wagtail ones, to scope out RichText options
+WAGTAIL_RICHEXT_FEATURES_FULL = [
+    # https://docs.wagtail.org/en/stable/advanced_topics/customisation/page_editing_interface.html#limiting-features-in-a-rich-text-field
+    # Order here is the order used in the editor UI
+    "h2",
+    "h3",
+    "hr",
+    "bold",
+    "italic",
+    "strikethrough",
+    "code",
+    "blockquote",
+    "link",
+    "ol",
+    "ul",
+]
+
+WAGTAILIMAGES_IMAGE_MODEL = "cms.BedrockImage"

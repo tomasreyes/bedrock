@@ -160,9 +160,6 @@ firefox-desktop-download-questions = Questions? <a { $attrs }>{ -brand-name-mozi
 
 firefox-desktop-download-watch-for-hackers-with-v3 = Watch for hackers with { -brand-name-mozilla-monitor }, protect your email address with { -brand-name-firefox-relay }, and more.
 
-# Obsolete string
-firefox-desktop-download-watch-for-hackers-with-v2 = Watch for hackers with { -brand-name-firefox-monitor }, protect your email address with { -brand-name-firefox-relay }, and more.
-
 ## URL: https://www-dev.allizom.org/firefox/download/thanks/
 
 firefox-desktop-download-almost-there = Almost there!
@@ -205,5 +202,3 @@ firefox-desktop-download-please-follow = Please follow <a href="{ $url }">these 
 # Variables:
 #   $url (url) - link to https://www.mozilla.org/firefox/all/
 firefox-desktop-download-your-system-may-not = Your system may not meet the requirements for { -brand-name-firefox }, but you can try one of <a href="{ $url }">these versions</a>.
-
-firefox-desktop-download-taskbar = { -brand-name-firefox } will be pinned to the { -brand-name-windows } taskbar after installation

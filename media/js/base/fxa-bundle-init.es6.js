@@ -4,15 +4,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import FxaLink from './fxa-link.es6.js';
-import FxaAttribution from './fxa-attribution.es6.js';
+import FxaBundleConsent from './fxa-bundle-consent.es6';
 
-if (typeof window._SearchParams !== 'undefined') {
-    const urlParams = new window._SearchParams();
-
-    // Track external URL parameter referrals for Mozilla account links.
-    FxaAttribution.init(urlParams.params);
-
-    // Configure Mozilla account links for Sync on desktop.
-    FxaLink.init();
-}
+FxaBundleConsent.init();

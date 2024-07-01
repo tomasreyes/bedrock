@@ -22,7 +22,7 @@ RUN pip install --require-hashes --no-cache-dir -r requirements/prod.txt
 ########
 # assets builder and dev server
 #
-FROM node:20.8.0-slim AS assets
+FROM node:20.14.0-slim AS assets
 
 ENV PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app
@@ -41,7 +41,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --verbose
 
 # copy supporting files and media
-COPY .eslintrc.js .eslintignore .stylelintrc .prettierrc.json .prettierignore webpack.config.js webpack.static.config.js ./
+COPY eslint.config.js .stylelintrc .prettierrc.json .prettierignore webpack.config.js webpack.static.config.js ./
 COPY ./media ./media
 COPY ./tests/unit ./tests/unit
 COPY ./glean ./glean
@@ -81,7 +81,7 @@ COPY ./lib ./lib
 COPY ./root_files ./root_files
 COPY ./scripts ./scripts
 COPY ./wsgi ./wsgi
-COPY manage.py LICENSE newrelic.ini contribute.json ./
+COPY manage.py LICENSE newrelic.ini ./
 
 # changes more frequently
 COPY ./docker ./docker
@@ -110,7 +110,7 @@ COPY ./tests ./tests
 
 RUN bin/run-sync-all.sh
 
-RUN chown webdev.webdev -R .
+RUN chown webdev:webdev -R .
 
 # for bpython
 RUN mkdir /home/webdev/
@@ -136,7 +136,7 @@ COPY --from=assets /app/assets /app/assets
 RUN honcho run --env docker/envfiles/prod.env docker/bin/build_staticfiles.sh
 
 # Change User
-RUN chown webdev.webdev -R .
+RUN chown webdev:webdev -R .
 USER webdev
 
 # build args

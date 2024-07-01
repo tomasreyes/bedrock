@@ -196,66 +196,20 @@ class TestVideoTag(TestCase):
         assert extensions == [".webm", ".ogv"]
 
 
-class TestPressBlogUrl(TestCase):
-    rf = RequestFactory()
-
-    def _render(self, locale):
-        req = self.rf.get("/")
-        req.locale = locale
-        return render("{{{{ press_blog_url() }}}}".format("/"), {"request": req})  # noqa: F523
-
-    def test_press_blog_url_no_locale(self):
-        """No locale, fallback to default press blog"""
-        assert self._render("") == "https://blog.mozilla.org/press/"
-
-    def test_press_blog_url_english(self):
-        """en-US locale, default press blog"""
-        assert self._render("en-US") == "https://blog.mozilla.org/press/"
-
-    def test_press_blog_url_europe(self):
-        """Major European locales have their own blog"""
-        assert self._render("es-ES") == "https://blog.mozilla.org/press-es/"
-        assert self._render("fr") == "https://blog.mozilla.org/press-fr/"
-        assert self._render("de") == "https://blog.mozilla.org/press-de/"
-        assert self._render("pl") == "https://blog.mozilla.org/press-pl/"
-        assert self._render("it") == "https://blog.mozilla.org/press-it/"
-        assert self._render("en-GB") == "https://blog.mozilla.org/press-uk/"
-
-    def test_press_blog_url_latam(self):
-        """South American Spanishes use the es-ES blog"""
-        assert self._render("es-AR") == "https://blog.mozilla.org/press-es/"
-        assert self._render("es-CL") == "https://blog.mozilla.org/press-es/"
-        assert self._render("es-MX") == "https://blog.mozilla.org/press-es/"
-
-    def test_press_blog_url_brazil(self):
-        """Brazilian Portuguese has its own br blog"""
-        assert self._render("pt-BR") == "https://blog.mozilla.org/press-br/"
-
-    def test_press_blog_url_other_locale(self):
-        """No blog for locale, fallback to default press blog"""
-        assert self._render("oc") == "https://blog.mozilla.org/press/"
-
-
 class TestDonateUrl(TestCase):
     rf = RequestFactory()
 
-    def _render(self, content=""):
+    def _render(self, location=""):
         req = self.rf.get("/")
-        return render(f"{{{{ donate_url(content='{content}') }}}}", {"request": req})
+        return render(f"{{{{ donate_url(location='{location}') }}}}", {"request": req})
 
-    def test_donate_url_with_content_param(self):
-        """Should include campaign specific parameters when supplied"""
-        assert self._render(content="footer") == (
-            "https://foundation.mozilla.org/?form=donate&amp;c_id=7014x000000eQOH&amp;utm_source=mozilla.org&amp;utm_medium=referral"
-            "&amp;utm_campaign=moco&amp;utm_content=footer"
-        )
+    def test_donate_url_with_location_param(self):
+        """Should include location parameter when supplied"""
+        assert self._render(location="moco-donate-footer") == ("https://foundation.mozilla.org/?form=moco-donate-footer")
 
     def test_donate_url_no_params(self):
-        """Should exclude campaign specific parameters when not supplied"""
-        assert self._render() == (
-            "https://foundation.mozilla.org/?form=donate&amp;c_id=7014x000000eQOH&amp;utm_source=mozilla.org&amp;utm_medium=referral"
-            "&amp;utm_campaign=moco"
-        )
+        """Should link to /donate/ when no location parameter is supplied"""
+        assert self._render() == ("https://foundation.mozilla.org/donate/")
 
 
 class TestFirefoxTwitterUrl(TestCase):
@@ -1180,3 +1134,47 @@ class TestFxALinkFragment(TestCase):
             '&utm_source=mozilla.org-firefox-whatsnew73&utm_medium=referral&utm_campaign=whatsnew73"'
         )
         self.assertEqual(markup, expected)
+
+
+@pytest.mark.parametrize(
+    "country_code, expected",
+    [
+        ("AT", "True"),  # Austria
+        ("BE", "True"),  # Belgium
+        ("BG", "True"),  # Bulgaria
+        ("HR", "True"),  # Croatia
+        ("CY", "True"),  # Republic of Cyprus
+        ("CZ", "True"),  # Czech Republic
+        ("DK", "True"),  # Denmark
+        ("EE", "True"),  # Estonia
+        ("FI", "True"),  # Finland
+        ("FR", "True"),  # France
+        ("DE", "True"),  # Germany
+        ("GR", "True"),  # Greece
+        ("HU", "True"),  # Hungary
+        ("IE", "True"),  # Ireland
+        ("IS", "True"),  # Iceland
+        ("IT", "True"),  # Italy
+        ("LV", "True"),  # Latvia
+        ("LI", "True"),  # Liechtenstein
+        ("LT", "True"),  # Lithuania
+        ("LU", "True"),  # Luxembourg
+        ("MT", "True"),  # Malta
+        ("NL", "True"),  # Netherlands
+        ("NO", "True"),  # Norway
+        ("PL", "True"),  # Poland
+        ("PT", "True"),  # Portugal
+        ("RO", "True"),  # Romania
+        ("SK", "True"),  # Slovakia
+        ("SI", "True"),  # Slovenia
+        ("ES", "True"),  # Spain
+        ("SE", "True"),  # Sweden
+        ("CH", "True"),  # Switzerland
+        ("GB", "True"),  # United Kingdom
+        ("US", "False"),  # United States
+        ("CA", "False"),  # Canada
+    ],
+)
+def test_needs_data_consent(country_code, expected):
+    template = "{{ needs_data_consent('%s') }}" % country_code
+    assert render(template) == expected

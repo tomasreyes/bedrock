@@ -4,13 +4,26 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import Glean from '@mozilla/glean/web';
+import GleanMetrics from '@mozilla/glean/metrics';
+import { pageEvent } from './page.es6';
+import {
+    consentRequired,
+    getConsentCookie,
+    isFirefoxDownloadThanks
+} from '../base/consent/utils.es6';
+
 const Utils = {
-    filterNewsletterURL: (str) => {
+    /**
+     * Takes a URL string and filters out any sensitive information,
+     * such as newsletter tokens, before returning the URL.
+     * See issue https://github.com/mozilla/bedrock/issues/13583
+     * @param {String} URL
+     * @returns {String} filtered URL
+     */
+    filterURL: (str) => {
         try {
             const url = new URL(str);
-
-            // Ensure we don't include tokens in newsletter page load event pings
-            // Issue https://github.com/mozilla/bedrock/issues/13583
             const newsletterPaths = [
                 '/newsletter/existing/',
                 '/newsletter/country/'
@@ -36,75 +49,153 @@ const Utils = {
         }
     },
 
-    getUrl: (str) => {
-        const url = typeof str === 'string' ? str : window.location.href;
-        return Utils.filterNewsletterURL(url);
+    /**
+     * Determine if page URL is /firefox/download/thanks/.
+     */
+    isFirefoxDownloadThanks: () => {
+        return isFirefoxDownloadThanks(window.location.href);
     },
 
-    getPathFromUrl: (str) => {
-        let pathName =
-            typeof str === 'string' ? str : document.location.pathname;
-        pathName = pathName.replace(/^(\/\w{2}-\w{2}\/|\/\w{2,3}\/)/, '/');
-        const newsletterPaths = [
-            '/newsletter/existing/',
-            '/newsletter/country/'
-        ];
+    /**
+     * Initialize Glean for sending pings.
+     * @param {*} telemetryEnabled
+     */
+    initGlean: (telemetryEnabled) => {
+        const pageUrl = window.location.href;
+        const endpoint = 'https://www.mozilla.org';
+        const channel = pageUrl.startsWith(endpoint) ? 'prod' : 'non-prod';
 
-        // Ensure we don't include tokens in newsletter page pings
-        // Issue https://github.com/mozilla/bedrock/issues/13583
-        newsletterPaths.forEach((path) => {
-            if (pathName.includes(path)) {
-                pathName = path;
-            }
+        /**
+         * Ensure telemetry coming from automated testing is tagged
+         * https://mozilla.github.io/glean/book/reference/debug/sourceTags.html
+         */
+        if (pageUrl.includes('automation=true')) {
+            Glean.setSourceTags(['automation']);
+        }
+
+        Glean.initialize('bedrock', telemetryEnabled, {
+            channel: channel,
+            serverEndpoint: endpoint,
+            enableAutoElementClickEvents: true
         });
-
-        return pathName;
     },
 
-    getLocaleFromUrl: (str) => {
-        const pathName =
-            typeof str === 'string' ? str : document.location.pathname;
-        const locale = pathName.match(/^\/(\w{2}-\w{2}|\w{2,3})\//);
-        // If there's no locale in the path then assume language is `en-US`;
-        return locale && locale.length > 0 ? locale[1] : 'en-US';
+    /**
+     * Record page load event and add custom metrics.
+     */
+    initPageLoadEvent: () => {
+        /**
+         * Manually call Glean's default page_load event. Here
+         * we override `url` and `referrer` since we need to
+         * apply some custom logic to these values before they
+         * are sent.
+         */
+        GleanMetrics.pageLoad({
+            url: Utils.filterURL(window.location.href),
+            referrer: Utils.filterURL(document.referrer)
+        });
     },
 
-    getQueryParamsFromUrl: (str) => {
-        const query = typeof str === 'string' ? str : window.location.search;
-
-        if (typeof window._SearchParams !== 'undefined') {
-            return new window._SearchParams(query);
+    initHelpers: () => {
+        if (typeof window.Mozilla === 'undefined') {
+            window.Mozilla = {};
         }
 
-        return false;
+        /**
+         * Creates global helpers on the window.Mozilla.Glean
+         * namespace, so that external JS bundles can trigger
+         * custom interaction events.
+         */
+        window.Mozilla.Glean = {
+            /**
+             * Note: pageEvent is not currently used in the codebase,
+             * but will be useful for future implementations once we
+             * align it more closely to follow the now standardized
+             * Glean click event metrics.
+             */
+            pageEvent: (obj) => {
+                try {
+                    pageEvent(obj);
+                } catch (e) {
+                    // do nothing
+                }
+            },
+            clickEvent: (obj) => {
+                try {
+                    GleanMetrics.recordElementClick(obj);
+                } catch (e) {
+                    // do nothing
+                }
+            }
+        };
     },
 
-    getReferrer: (str) => {
-        const referrer = typeof str === 'string' ? str : document.referrer;
-        const url = Utils.filterNewsletterURL(referrer);
+    /**
+     * Initialize Glean and fire page load event only if telemetry
+     * is enabled.
+     * @param {Boolean} telemetryEnabled
+     */
+    configureGlean: (telemetryEnabled) => {
+        Utils.initGlean(telemetryEnabled);
 
-        if (typeof window.Mozilla.Analytics !== 'undefined') {
-            return Mozilla.Analytics.getReferrer(url);
+        if (telemetryEnabled) {
+            Utils.initPageLoadEvent();
+
+            // Initialize global clickEvent helpers
+            Utils.initHelpers();
         }
-
-        return url;
     },
 
-    getHttpStatus: () => {
-        const pageId = document
-            .getElementsByTagName('html')[0]
-            .getAttribute('data-http-status');
-        return pageId && pageId === '404' ? '404' : '200';
+    /**
+     * Handle 'mozConsentStatus' event.
+     * @param {Object} e - Event object.
+     */
+    handleConsent: (e) => {
+        Utils.configureGlean(e.detail.analytics);
+        window.removeEventListener(
+            'mozConsentStatus',
+            Utils.handleConsent,
+            false
+        );
     },
 
-    isTelemetryEnabled: () => {
-        if (
-            typeof Mozilla.Cookies !== 'undefined' &&
-            Mozilla.Cookies.enabled()
-        ) {
-            return !Mozilla.Cookies.hasItem('moz-1st-party-data-opt-out');
+    /**
+     * Configure Glean depending on data consent requirements.
+     */
+    bootstrapGlean: () => {
+        // If visitor is in the EU/EAA wait for a consent signal.
+        if (consentRequired()) {
+            /**
+             * If we're on /thanks/ and already have a consent cookie that
+             * accepts analytics then load Glean. This is important because
+             * a consent signal does not fire on /thanks/ in EU/EAA due to
+             * the allow-list, but we still want to record downloads from
+             * campaign pages that are allowed.
+             */
+            const cookie = getConsentCookie();
+
+            if (
+                Utils.isFirefoxDownloadThanks(window.location.href) &&
+                cookie &&
+                cookie.analytics
+            ) {
+                Utils.configureGlean(cookie.analytics);
+            } else {
+                window.addEventListener(
+                    'mozConsentStatus',
+                    Utils.handleConsent,
+                    false
+                );
+            }
+        } else {
+            /**
+             * Else if outside of EU/EAA, load analytics by default
+             * (unless consent cookie rejects analytics).
+             */
+            const cookie = getConsentCookie();
+            const consent = cookie ? cookie.analytics : true;
+            Utils.configureGlean(consent);
         }
-        return true;
     }
 };
 

@@ -59,7 +59,7 @@
 
     <h2>{{ ftl('misinformation-false-info-heading') }}</h2>
 
-    <p>{{ ftl('misinformation-widespread-online', tracking='https://blog.mozilla.org/firefox/how-to-stop-web-trackers/' + _params) }}</p>
+    <p>{{ ftl('misinformation-widespread-online', tracking='https://blog.mozilla.org/products/firefox/firefox-privacy-protections/' + _params) }}</p>
     <p>{{ ftl('misinformation-tracking-advertising') }}</p>
     <p>{{ ftl('misinformation-social-newtorks') }}</p>
   </section>
@@ -183,7 +183,7 @@
         base_el='li',
       ) %}
         <p>{{ ftl('misinformation-firefox-products-work-differently') }}</p>
-        <p><a href="{{ url('firefox.privacy.products') }}">{{ ftl('misinformation-learn-about-our-products') }}</a></p>
+        <p><a href="{{ url('products.landing') }}">{{ ftl('misinformation-learn-about-our-products') }}</a></p>
       {% endcall %}
     </ul>
   </div>

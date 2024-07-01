@@ -10,7 +10,7 @@ from django.forms import widgets
 
 from product_details import product_details
 
-from bedrock.mozorg.forms import FORMATS, EmailInput, PrivacyWidget, strip_parenthetical
+from bedrock.mozorg.forms import EmailInput, PrivacyWidget, strip_parenthetical
 from bedrock.newsletter import utils
 from lib.l10n_utils.fluent import ftl, ftl_lazy
 
@@ -63,7 +63,7 @@ class SimpleRadioSelect(widgets.RadioSelect):
 
 class BooleanTabularRadioSelect(widgets.RadioSelect):
     """
-    A Select Widget intended to be used with NullBooleanField.
+    A Select Widget intended to be used with BooleanField.
     """
 
     template_name = "newsletter/forms/tabular_radio_select.html"
@@ -130,7 +130,6 @@ class ManageSubscriptionsForm(forms.Form):
     @param kwargs: Other standard form kwargs
     """
 
-    format = forms.ChoiceField(widget=SimpleRadioSelect, choices=FORMATS, initial="H")
     remove_all = forms.BooleanField(required=False)
 
     country = forms.ChoiceField(choices=[], required=False)  # will set choices based on locale
@@ -178,13 +177,12 @@ class NewsletterFooterForm(forms.Form):
         "mozilla-and-you": ftl("multi-newsletter-form-checkboxes-label-firefox"),
     }
 
-    email = forms.EmailField(widget=EmailInput(attrs={"required": "required"}))
+    email = forms.EmailField(widget=EmailInput(attrs={"required": "required", "data-testid": "newsletter-email-input"}))
     # first/last_name not yet included in email_newsletter_form helper
     # currently used on /contribute/friends/ (custom markup)
     first_name = forms.CharField(widget=forms.TextInput, required=False)
     last_name = forms.CharField(widget=forms.TextInput, required=False)
-    fmt = forms.ChoiceField(widget=SimpleRadioSelect, choices=FORMATS, initial="H")
-    privacy = forms.BooleanField(widget=PrivacyWidget)
+    privacy = forms.BooleanField(widget=PrivacyWidget(attrs={"data-testid": "newsletter-privacy-checkbox"}))
     source_url = forms.CharField(required=False)
     newsletters = forms.MultipleChoiceField(widget=forms.CheckboxSelectMultiple())
 

@@ -107,22 +107,18 @@ module.exports = {
         devMiddleware: {
             index: false // specify to enable root proxy'ing
         },
-        proxy: {
-            context: () => true,
-            target: process.env.WP_PROXY_URL || 'http://0.0.0.0:8080'
-        },
+        proxy: [
+            {
+                context: () => true,
+                target: process.env.WP_PROXY_URL || 'http://0.0.0.0:8080'
+            }
+        ],
         watchFiles: ['media/**/*.js', 'media/**/*.scss', 'bedrock/**/*.html'],
         client: {
             logging: 'error',
             overlay: false
         },
-        setupExitSignals: true,
-        onListening: () => {
-            /* eslint-disable-next-line no-console */
-            console.log(
-                '[bedrock] Please wait for bundles to finish compiling.'
-            );
-        }
+        setupExitSignals: true
     },
     plugins: [
         new CopyPlugin({
@@ -135,9 +131,16 @@ module.exports = {
             ]
         }),
         new Dotenv(),
+        /**
+         * Enable tree shaking of Sentry SDK debug code
+         * https://docs.sentry.io/platforms/javascript/configuration/tree-shaking/
+         */
         new webpack.DefinePlugin({
             __SENTRY_DEBUG__: false,
-            __SENTRY_TRACING__: false
+            __SENTRY_TRACING__: false,
+            __RRWEB_EXCLUDE_IFRAME__: true,
+            __RRWEB_EXCLUDE_SHADOW_DOM__: true,
+            __SENTRY_EXCLUDE_REPLAY_WORKER__: true
         }),
         new MiniCssExtractPlugin({
             filename: ({ chunk }) =>

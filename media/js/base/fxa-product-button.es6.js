@@ -7,7 +7,6 @@
 const FxaProductButton = {};
 
 const allowedList = [
-    'https://accounts.firefox.com.cn/',
     'https://accounts.firefox.com/',
     'https://accounts.stage.mozaws.net/',
     'https://getpocket.com/',
@@ -170,7 +169,7 @@ FxaProductButton.init = function (overwrite) {
     // Collect all Fxa product buttons
     _buttons = document.getElementsByClassName('js-fxa-product-button');
 
-    if (!FxaProductButton.isSupported() || _buttons.length === 0) {
+    if (!FxaProductButton.isSupported()) {
         return false;
     }
 

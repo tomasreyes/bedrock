@@ -43,11 +43,19 @@ class GeoTemplateView(l10n_utils.L10nTemplateView):
         return super().get_template_names()
 
 
-# file names and max seconds since last run
-HEALTH_FILES = (
-    ("download_database", 600),
+SQLITE_DB_IN_USE = settings.DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3"
+
+HEALTH_FILES = [
+    # Format: (file name, max seconds since last run)
     ("update_locales", 600),
-)
+]
+
+if SQLITE_DB_IN_USE:
+    HEALTH_FILES.insert(
+        0,
+        ("download_database", 600),
+    )
+
 DB_INFO_FILE = getenv("AWS_DB_JSON_DATA_FILE", f"{settings.DATA_PATH}/bedrock_db_info.json")
 GIT_SHA = getenv("GIT_SHA")
 BUCKET_NAME = getenv("AWS_DB_S3_BUCKET", "bedrock-db-dev")
@@ -149,6 +157,11 @@ def cron_health_check(request):
             datetime.fromtimestamp(repo.latest_ref_timestamp),
         )
 
+    try:
+        most_recent_data_change_ts = sorted([x.last_updated_timestamp for x in unique_repos.values()])[-1]
+    except IndexError:
+        most_recent_data_change_ts = None
+
     return render(
         request,
         "cron-health-check.html",
@@ -159,6 +172,8 @@ def cron_health_check(request):
             "success": check_pass,
             "git_repos": unique_repos.values(),
             "fluent_repo": get_l10n_repo_info(),
+            "SQLITE_DB_IN_USE": SQLITE_DB_IN_USE,
+            "most_recent_data_change_ts": most_recent_data_change_ts,
         },
         status=200 if check_pass else 500,
     )
@@ -172,3 +187,7 @@ def server_error_view(request, template_name="500.html"):
 def page_not_found_view(request, exception=None, template_name="404.html"):
     """404 error handler that runs context processors."""
     return l10n_utils.render(request, template_name, ftl_files=["404", "500"], status=404)
+
+
+def csrf_failure(request, reason="CSRF failure", template_name="403_csrf.html"):
+    return render(request, template_name, status=403)

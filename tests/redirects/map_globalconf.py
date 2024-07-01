@@ -28,8 +28,6 @@ URLS = flatten(
         # bug 845988 - remove double slashes in URLs
         url_test("/en-US/firefox//all/", "/en-US/firefox/all/"),
         url_test("/pt-BR/////thunderbird/", "/pt-BR/thunderbird/"),
-        # bug 755826, 1222348, 1416798
-        url_test("/zh-CN/", "https://www.firefox.com.cn/", query={"utm_medium": "referral", "utm_source": "mozilla.org"}),
         # bug 874913
         url_test("/en-US/{,products/}download.html{,?stuff=whatnot}", "/en-US/firefox/new/"),
         url_test("/{,products/}download.html{,?stuff=whatnot}", "/firefox/new/"),
@@ -187,7 +185,7 @@ URLS = flatten(
         url_test("/{m,{firefox/,}mobile}/faq/", "https://support.mozilla.org/products/mobile"),
         # bug 885799, 952429
         url_test("/projects/calendar/holidays.html", "https://www.thunderbird.net/calendar/holidays/"),
-        url_test("/en-US/projects/calendar/random/stuff/", "https://www.thunderbird.net/calendar/"),
+        url_test("/projects/calendar/random/stuff/", "https://www.thunderbird.net/calendar/"),
         # bug 1388914
         url_test("/thunderbird{,/}", "https://www.thunderbird.net/"),
         url_test("/thunderbird/channel/", "https://www.thunderbird.net/channel/"),
@@ -561,8 +559,6 @@ URLS = flatten(
         # issue 14141
         url_test("/firefox/browsers/mobile/compare", "/firefox/browsers/mobile/"),
         url_test("/newsletter/ios/", "/firefox/browsers/mobile/ios/"),
-        # issue 14142
-        url_test("/firefox/browsers/compare/ie/", "/firefox/browsers/compare/"),
         # bug 818323
         url_test("/projects/security/known-vulnerabilities.html", "/security/known-vulnerabilities/"),
         url_test("/projects/security/older-vulnerabilities.html", "/security/known-vulnerabilities/older-vulnerabilities/"),
@@ -778,7 +774,7 @@ URLS = flatten(
         # bug 1034859
         url_test("/en-US/about/buttons/dude.jpg", "/media/img/careers/buttons/dude.jpg"),
         # bug 1003737
-        url_test("/de/impressum/", "/de/about/legal/impressum/"),
+        url_test("/de/impressum/", "/de/about/legal/impressum/", follow_redirects=True),
         # bug 1248393
         url_test("/de/about/legal/impressum/", status_code=requests.codes.ok),
         url_test("/{en-US,fr,ja}/about/legal/impressum/", "/de/about/legal/impressum/", status_code=requests.codes.found),
@@ -794,8 +790,8 @@ URLS = flatten(
         url_test("/foundation/donate_form.pdf", "https://static.mozilla.com/foundation/documents/donate_form.pdf"),
         # openwebfund/ and openwebfund/index.html redirect to another site.  Careful because
         # there are other pages under openwebfund that still need to be served from Bedrock.
-        url_test("/foundation/openwebfund/", "https://donate.mozilla.org/?source=owf_redirect"),
-        url_test("/foundation/donate.html", "https://donate.mozilla.org/?source=donate_redirect"),
+        url_test("/foundation/openwebfund/", "https://foundation.mozilla.org/donate/"),
+        url_test("/foundation/donate.html", "https://foundation.mozilla.org/donate/"),
         # FIXUPs for changing foo/bar.html to foo/bar/
         # Redirect foundation/foo.html to foundation/foo/, with a redirect for the nice search engines
         url_test("/foundation/{about,careers,licensing,moco,mocosc}.html", "/foundation/{about,careers,licensing,moco,mocosc}/"),
@@ -866,12 +862,12 @@ URLS = flatten(
         url_test("/projects/tech-evangelism/", "https://wiki.mozilla.org/Evangelism"),
         url_test("/projects/venkman/", "https://developer.mozilla.org/docs/Archive/Mozilla/Venkman"),
         url_test("/projects/webservices/examples/babelfish-wsdl/", "https://developer.mozilla.org/docs/SOAP_in_Gecko-based_Browsers"),
-        url_test("/projects/xbl/", "https://developer.mozilla.org/docs/Mozilla/Tech/XBL"),
-        url_test("/projects/xforms/", "https://developer.mozilla.org/docs/Archive/Web/XForms"),
+        url_test("/projects/xbl/", "https://www.w3.org/TR/xbl/"),
+        url_test("/projects/xforms/", "https://wiki.mozilla.org/XForms"),
         url_test("/projects/xpcom/", "https://developer.mozilla.org/docs/Mozilla/Tech/XPCOM"),
         url_test("/projects/xpinstall/", "https://developer.mozilla.org/docs/Archive/Mozilla/XPInstall"),
         url_test("/projects/xslt/", "https://developer.mozilla.org/docs/Web/XSLT"),
-        url_test("/projects/xul/", "https://developer.mozilla.org/docs/Mozilla/Tech/XUL"),
+        url_test("/projects/xul/", "https://wiki.mozilla.org/XUL"),
         url_test("/quality/", "http://quality.mozilla.org/"),
         url_test("/quality/help/", "http://quality.mozilla.org/get-involved"),
         # Bug 654614 /blocklist -> addons.m.o/blocked, Issue 14221
@@ -879,8 +875,6 @@ URLS = flatten(
         url_test("/products/firefox/{,stuff/}", "/products/"),
         # Bug 784411
         url_test("/about/mission/", "/mission/"),
-        # Bug 1171763, 1347752 - /research/ -> research.m.o
-        url_test("/research/{,projects/,researchers/}", "https://research.mozilla.org/"),
         # Bug 1260423
         url_test("/firefox/choose", "/firefox/new/"),
         url_test("/firefox/{,46.0/,46.0.1/,47.0/,47.0.1/}secondrun", "/firefox/browsers/mobile/"),
@@ -888,14 +882,14 @@ URLS = flatten(
         url_test("/hacking", "https://firefox-source-docs.mozilla.org/"),
         # issue 10736
         url_test("/jobs", "/careers/"),
-        url_test("/join", "https://donate.mozilla.org/"),
+        url_test("/join", "https://foundation.mozilla.org/donate/"),
         # Bug 1293539
         url_test("/firefox/{48.0,48.0.1,49.0a1,49.0a2}/tour", "https://support.mozilla.org/kb/get-started-firefox-overview-main-features"),
         url_test("/firefox/tour", "https://support.mozilla.org/kb/get-started-firefox-overview-main-features"),
         # Bug 1262593
         url_test("/unix/remote.html", "http://www-archive.mozilla.org/unix/remote.html"),
         # Bug 1313023
-        url_test("/story", "https://donate.mozilla.org/?source=story_redirect"),
+        url_test("/story", "https://foundation.mozilla.org/donate/"),
         # Bug 1277196
         url_test(
             "/firefox/firstrun/learnmore",
@@ -1056,8 +1050,8 @@ URLS = flatten(
         url_test("/enterprise/", "/firefox/enterprise/"),
         # Issue 7970
         url_test("/moss/mission-partners-india/", "/moss/mission-partners/"),
-        # Issue 7983
-        url_test("/privacy/products/", "/firefox/privacy/products/"),
+        # Issue 7983, 14248
+        url_test("/privacy/products/", "/firefox/privacy/"),
         # Issue #8206
         url_test("/firefox/{69.0/,69.0.1/,69.0a2/,69.0.1a1/,}tracking-protection/start/", "https://support.mozilla.org/kb/tracking-protection"),
         url_test("/firefox/{69.0/,69.0.1/,69.0a2/,69.0.1a1/,}content-blocking/start/", "https://support.mozilla.org/kb/content-blocking"),
@@ -1102,8 +1096,8 @@ URLS = flatten(
                 "utm_campaign": "builders-redirect",
             },
         ),
-        # Issue 6824
-        url_test("/technology/", "https://labs.mozilla.org/"),
+        # Issue 6824, 14364
+        url_test("/technology/", "https://future.mozilla.org/"),
         # Issue 8419
         url_test("/firefox/this-browser-comes-highly-recommended/", "/firefox/developer/"),
         # Issue 8420
@@ -1132,7 +1126,7 @@ URLS = flatten(
         # Issue 8375
         url_test("/internet-health/{,privacy-security/}", "https://foundation.mozilla.org/internet-health/"),
         # Issue 8949
-        url_test("/donate/", "https://donate.mozilla.org/?utm_source=mozilla.org&utm_content=shortlink"),
+        url_test("/donate/", "https://foundation.mozilla.org/donate/"),
         url_test("/about/governance/policies/security/plugin-whitelist-policy/", "https://wiki.mozilla.org/Plugins/Firefox_Whitelist"),
         url_test("/about/governance/policies/security-group/tld-idn/", "https://wiki.mozilla.org/IDN_Display_Algorithm"),
         # Unfck campaign, issue 11613
@@ -1225,6 +1219,11 @@ URLS = flatten(
         url_test("/firefox/welcome/3/", "/account/"),
         url_test("/firefox/mobile/get-app/", "/firefox/browsers/mobile/get-app/"),
         url_test("/contact/spaces/paris/", "/contact/spaces/"),
+        # Issue 14245
+        url_test("/contact/spaces/berlin/", "/contact/spaces/"),
+        url_test("/contact/spaces/beijing/", "/contact/spaces/"),
+        url_test("/contact/spaces/san-francisco/", "/contact/spaces/"),
+        url_test("/contact/spaces/toronto/", "/contact/spaces/"),
         # Issue 13924
         url_test("/foundation/annualreport/{,2022/}", "https://stateof.mozilla.org/"),
         # Issue 14186
@@ -1288,5 +1287,19 @@ URLS = flatten(
         url_test("/firefox/flashback/", "/firefox/"),
         url_test("/landing/firefox/fx100/", "/firefox/"),
         url_test("/{santa-locator,santalocator}/", "/"),
+        # Issue 14351
+        url_test("/research/", "https://foundation.mozilla.org/research/"),
+        url_test("/research/cc/", "https://foundation.mozilla.org/research/library/?topics=187"),
+        # Issue 14222
+        url_test("/firefox/browsers/", "/firefox/"),
+        # issue 14467
+        url_test("/firefox/125.0/releasenotes/", "/firefox/125.0.1/releasenotes/"),
+        # issue 14647
+        url_test("/privacy/hubs/", "/privacy/archive/mozilla-hubs/notice-2024-06/"),
+        url_test("/about/legal/terms/hubs/", "/privacy/archive/mozilla-hubs/tos-2024-06/"),
+        # issue 14248
+        url_test("/firefox/privacy/products/", "/products/"),
+        url_test("/firefox/privacy/safe-passwords/", "/firefox/features/password-manager/"),
+        url_test("/firefox/privacy/book/", "https://support.mozilla.org/kb/how-stay-safe-web"),
     )
 )

@@ -334,15 +334,6 @@ def show_57_dev_firstrun(version):
     return version >= Version("57.0")
 
 
-def show_default_account_whatsnew(version):
-    try:
-        version = Version(version)
-    except ValueError:
-        return False
-
-    return version >= Version("60.0")
-
-
 class FirstrunView(L10nTemplateView):
     ftl_files_map = {"firefox/developer/firstrun.html": ["firefox/developer"]}
 
@@ -379,34 +370,23 @@ class WhatsnewView(L10nTemplateView):
         "firefox/developer/whatsnew.html": ["firefox/developer"],
         "firefox/developer/whatsnew-mdnplus.html": ["firefox/whatsnew/whatsnew-developer-mdnplus"],
         "firefox/nightly/whatsnew.html": ["firefox/nightly/whatsnew", "firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/index-account.html": ["firefox/whatsnew/whatsnew-account", "firefox/whatsnew/whatsnew"],
         "firefox/whatsnew/index.html": ["firefox/whatsnew/whatsnew-s2d", "firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx119-eu-relay.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx119-eu-trio-v1.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx119-eu-trio-v2.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx119-na-addons.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx119-na-trio.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx120-na.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx120-eu-vpn.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx120-eu.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx121.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx122-na.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx122-eu.html": ["firefox/whatsnew/whatsnew-s2d", "firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx123-na.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx123-eu.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx124-na-pdf.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx124-eu-compare.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx124-de-voices-video.html": ["firefox/whatsnew/whatsnew"],
-        "firefox/whatsnew/whatsnew-fx124-de-voices-share.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx125-na.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx125-eu.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126beta-de.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126beta-en-US.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126beta-en-CA.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126beta-en-GB.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126beta-fr.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126-na.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx126-eu.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx127-na.html": ["firefox/whatsnew/whatsnew"],
+        "firefox/whatsnew/whatsnew-fx127-eu.html": ["firefox/whatsnew/whatsnew"],
     }
 
     # specific templates that should not be rendered in
     # countries where we can't advertise Mozilla VPN.
-    vpn_excluded_templates = [
-        "firefox/whatsnew/whatsnew-fx120-eu-vpn.html",
-        "firefox/whatsnew/whatsnew-fx119-eu-trio-v1.html",
-        "firefox/whatsnew/whatsnew-fx119-eu-trio-v2.html",
-    ]
+    vpn_excluded_templates = []
 
     # place expected ?v= values in this list
     variations = ["1", "2", "3", "4"]
@@ -474,90 +454,59 @@ class WhatsnewView(L10nTemplateView):
                 template = "firefox/developer/whatsnew.html"
             else:
                 template = "firefox/whatsnew/index.html"
-        elif version.startswith("124."):
+        elif channel == "beta":
+            if version.startswith("126.") or version.startswith("127."):
+                if locale.startswith("en-"):
+                    if locale == "en-GB" or country == "GB":
+                        template = "firefox/whatsnew/whatsnew-fx126beta-en-GB.html"
+                    elif locale == "en-CA" or country == "CA":
+                        template = "firefox/whatsnew/whatsnew-fx126beta-en-CA.html"
+                    else:
+                        template = "firefox/whatsnew/whatsnew-fx126beta-en-US.html"
+                elif locale == "de":
+                    template = "firefox/whatsnew/whatsnew-fx126beta-de.html"
+                elif locale == "fr":
+                    template = "firefox/whatsnew/whatsnew-fx126beta-fr.html"
+                else:
+                    template = "firefox/whatsnew/index.html"
+            else:
+                template = "firefox/whatsnew/index.html"
+        elif version.startswith("127."):
+            if locale in ["de", "fr", "en-GB", "es-ES", "it", "pl"]:
+                template = "firefox/whatsnew/whatsnew-fx127-eu.html"
+            elif locale in ["en-US", "en-CA"]:
+                if country == "GB":
+                    template = "firefox/whatsnew/whatsnew-fx127-eu.html"
+                else:
+                    template = "firefox/whatsnew/whatsnew-fx127-na.html"
+            else:
+                template = "firefox/whatsnew/index.html"
+        elif version.startswith("126."):
+            if locale in ["de", "fr", "en-GB", "es-ES", "it", "pl"]:
+                template = "firefox/whatsnew/whatsnew-fx126-eu.html"
+            elif locale in ["en-US", "en-CA"]:
+                if country == "GB":
+                    template = "firefox/whatsnew/whatsnew-fx126-eu.html"
+                else:
+                    template = "firefox/whatsnew/whatsnew-fx126-na.html"
+            else:
+                template = "firefox/whatsnew/index.html"
+        elif version.startswith("125."):
             if locale in ["de", "en-GB", "es-ES", "fr", "it", "pl"]:
-                if locale == "de":
-                    if variant == "2":
-                        template = "firefox/whatsnew/whatsnew-fx124-de-voices-video.html"
-                    elif variant == "3":
-                        template = "firefox/whatsnew/whatsnew-fx124-de-voices-share.html"
-                    else:
-                        template = "firefox/whatsnew/whatsnew-fx124-eu-compare.html"
-                else:
-                    template = "firefox/whatsnew/whatsnew-fx124-eu-compare.html"
-            elif locale == "en-US":
-                if country == "GB":
-                    template = "firefox/whatsnew/whatsnew-fx124-eu-compare.html"
-                else:
-                    template = "firefox/whatsnew/whatsnew-fx124-na-pdf.html"
-            else:
-                template = "firefox/whatsnew/index.html"
-        elif version.startswith("123."):
-            if locale in ["de", "en-GB", "fr"]:
-                template = "firefox/whatsnew/whatsnew-fx123-eu.html"
+                template = "firefox/whatsnew/whatsnew-fx125-eu.html"
             elif locale in ["en-US", "en-CA"]:
                 if country == "GB":
-                    template = "firefox/whatsnew/whatsnew-fx123-eu.html"
+                    template = "firefox/whatsnew/whatsnew-fx125-eu.html"
                 else:
-                    template = "firefox/whatsnew/whatsnew-fx123-na.html"
-            else:
-                template = "firefox/whatsnew/index.html"
-        elif version.startswith("122."):
-            if locale in ["de", "en-GB", "es-ES", "fr", "it", "pl"]:
-                template = "firefox/whatsnew/whatsnew-fx122-eu.html"
-            elif locale in ["en-US", "en-CA"]:
-                if country == "GB":
-                    template = "firefox/whatsnew/whatsnew-fx122-eu.html"
-                else:
-                    template = "firefox/whatsnew/whatsnew-fx122-na.html"
-            else:
-                template = "firefox/whatsnew/index.html"
-        elif version.startswith("121."):
-            if locale in ["en-US", "en-CA", "en-GB", "de", "fr"]:
-                template = "firefox/whatsnew/whatsnew-fx121.html"
-            else:
-                template = "firefox/whatsnew/index.html"
-        elif version.startswith("120."):
-            if country in WNP117_VPN_EXPANSION_COUNTRIES:
-                template = "firefox/whatsnew/whatsnew-fx120-eu-vpn.html"
-            elif locale in ["en-US", "en-CA"]:
-                template = "firefox/whatsnew/whatsnew-fx120-na.html"
-            elif locale in ["de", "fr", "en-GB"]:
-                template = "firefox/whatsnew/whatsnew-fx120-eu.html"
-            else:
-                template = "firefox/whatsnew/index.html"
-        elif version.startswith("119."):
-            if locale in ["de", "fr", "en-GB"]:
-                if variant == "3":
-                    template = "firefox/whatsnew/whatsnew-fx119-eu-relay.html"
-                elif variant == "2":
-                    template = "firefox/whatsnew/whatsnew-fx119-eu-trio-v2.html"
-                else:
-                    template = "firefox/whatsnew/whatsnew-fx119-eu-trio-v1.html"
-            elif locale.startswith("en-"):
-                if country == "GB":
-                    if variant == "3":
-                        template = "firefox/whatsnew/whatsnew-fx119-eu-relay.html"
-                    elif variant == "2":
-                        template = "firefox/whatsnew/whatsnew-fx119-eu-trio-v2.html"
-                    else:
-                        template = "firefox/whatsnew/whatsnew-fx119-eu-trio-v1.html"
-                else:
-                    if variant == "2":
-                        template = "firefox/whatsnew/whatsnew-fx119-na-addons.html"
-                    else:
-                        template = "firefox/whatsnew/whatsnew-fx119-na-trio.html"
+                    template = "firefox/whatsnew/whatsnew-fx125-na.html"
             else:
                 template = "firefox/whatsnew/index.html"
         else:
-            if show_default_account_whatsnew(version) and ftl_file_is_active("firefox/whatsnew/whatsnew-account"):
-                template = "firefox/whatsnew/index-account.html"
-            else:
-                template = "firefox/whatsnew/index.html"
+            template = "firefox/whatsnew/index.html"
 
         # do not promote Mozilla VPN in excluded countries.
         if country in settings.VPN_EXCLUDED_COUNTRY_CODES and template in self.vpn_excluded_templates:
-            template = "firefox/whatsnew/index-account.html"
+            template = "firefox/whatsnew/index.html"
 
         # return a list to conform with original intention
         return [template]
@@ -648,7 +597,7 @@ class NewView(L10nTemplateView):
     ]
 
     # place expected ?v= values in this list
-    variations = []
+    variations = ["1", "2"]
 
     def get(self, *args, **kwargs):
         # Remove legacy query parameters (Bug 1236791)
@@ -750,33 +699,8 @@ def ios_testflight(request):
 
 
 class FirefoxHomeView(L10nTemplateView):
-    ftl_files_map = {"firefox/home/index-master.html": ["firefox/home"]}
-
-    # place expected ?v= values in this list
-    variations = []
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        variant = self.request.GET.get("v", None)
-
-        # ensure variant matches pre-defined value
-        if variant not in self.variations:
-            variant = None
-
-        ctx["variant"] = variant
-
-        return ctx
-
-    def get_template_names(self):
-        variant = self.request.GET.get("v", None)
-
-        # ensure variant matches pre-defined value
-        if variant not in self.variations:
-            variant = None
-
-        template_name = "firefox/home/index-master.html"
-
-        return [template_name]
+    ftl_files_map = {"firefox/index.html": ["firefox/browsers"]}
+    template_name = "firefox/index.html"
 
 
 BREACH_TIPS_URLS = {
@@ -808,17 +732,7 @@ def firefox_welcome_page1(request):
 
 @require_safe
 def firefox_features_translate(request):
-    translate_langs = [
-        "es-ES",
-        "en-US",
-        "de",
-        "bg",
-        "pt-PT",
-        "it",
-        "fr",
-        "pl",
-        "nl",
-    ]
+    translate_langs = ["bg", "nl", "en-US", "et", "fi", "fr", "de", "el", "hu", "it", "pl", "pt-PT", "ru", "sl", "es-ES", "tr", "uk"]
 
     names = get_translations_native_names(sorted(translate_langs))
 

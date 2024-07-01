@@ -32,11 +32,6 @@ credits_file = CreditsFile("credits")
 TECH_BLOG_SLUGS = ["hacks", "cd", "futurereleases"]
 
 
-def csrf_failure(request, reason=""):
-    template_vars = {"reason": reason}
-    return l10n_utils.render(request, "mozorg/csrf-failure.html", template_vars, status=403)
-
-
 @xframe_allow
 def hacks_newsletter(request):
     return l10n_utils.render(request, "mozorg/newsletter/hacks.mozilla.org.html")
@@ -72,6 +67,13 @@ class SecurityDotTxt(RequireSafeMixin, TemplateView):
     content_type = "text/plain"
 
 
+class GpcDotJson(RequireSafeMixin, TemplateView):
+    # https://github.com/mozilla/bedrock/issues/14213
+    # served under .well-known/gpc.json
+    template_name = "mozorg/gpc.json"
+    content_type = "application/json"
+
+
 NAMESPACES = {
     "addons-bl": {
         "namespace": "http://www.mozilla.org/2006/addons-blocklist",
@@ -81,17 +83,17 @@ NAMESPACES = {
     "em-rdf": {
         "namespace": "http://www.mozilla.org/2004/em-rdf",
         "standard": "Extension Manifest",
-        "docs": "https://developer.mozilla.org/en/Install_Manifests",
+        "docs": "https://developer.mozilla.org/Add-ons/Distribution",
     },
     "microsummaries": {
         "namespace": "http://www.mozilla.org/microsummaries/0.1",
         "standard": "Microsummaries",
-        "docs": "https://developer.mozilla.org/en/Microsummary_XML_grammar_reference",
+        "docs": "https://wiki.mozilla.org/Microsummaries",
     },
     "mozsearch": {
         "namespace": "http://www.mozilla.org/2006/browser/search/",
         "standard": "MozSearch plugin format",
-        "docs": "https://developer.mozilla.org/en/Creating_MozSearch_plugins",
+        "docs": "https://web.archive.org/web/20061116161614/http://developer.mozilla.org/en/docs/Creating_MozSearch_plugins",
     },
     "update": {
         "namespace": "http://www.mozilla.org/2005/app-update",
@@ -101,12 +103,12 @@ NAMESPACES = {
     "xbl": {
         "namespace": "http://www.mozilla.org/xbl",
         "standard": "XML Binding Language (XBL)",
-        "docs": "https://developer.mozilla.org/en/XBL",
+        "docs": "https://www.w3.org/TR/xbl/",
     },
     "xforms-type": {
         "namespace": "http://www.mozilla.org/projects/xforms/2005/type",
         "standard": "XForms mozType extension",
-        "docs": "https://developer.mozilla.org/en/XForms/Custom_Controls",
+        "docs": "https://wiki.mozilla.org/XForms",
     },
     "xul": {
         "namespace": "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul",
@@ -199,7 +201,7 @@ class WebvisionDocView(RequireSafeMixin, TemplateView):
 
 
 MIECO_EMAIL_SUBJECT = {"mieco": "MIECO Interest Form", "innovations": "Innovations Interest Form"}
-MIECO_EMAIL_SENDER = "Mozilla.com <noreply@mozilla.com>"
+MIECO_EMAIL_SENDER = settings.DEFAULT_FROM_EMAIL
 MIECO_EMAIL_TO = {
     "mieco": ["mieco@mozilla.com"],
     "innovations": ["innovations@mozilla.com"],

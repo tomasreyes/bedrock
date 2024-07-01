@@ -36,8 +36,6 @@ urlpatterns = (
         ),
     ),
     path("firefox/all/", views.firefox_all, name="firefox.all"),
-    page("firefox/browsers/", "firefox/browsers/index.html", ftl_files=["firefox/browsers"]),
-    page("firefox/products/", "firefox/products/index.html", ftl_files=["firefox/products"]),
     page("firefox/channel/desktop/", "firefox/channel/desktop.html", ftl_files=["firefox/channel"]),
     page("firefox/channel/android/", "firefox/channel/android.html", ftl_files=["firefox/channel"]),
     page("firefox/channel/ios/", "firefox/channel/ios.html", ftl_files=["firefox/channel"]),
@@ -108,8 +106,8 @@ urlpatterns = (
     re_path(f"^firefox/(?:{platform_re}/)?(?:{channel_re}/)?notes/$", bedrock.releasenotes.views.latest_notes, name="firefox.notes"),
     path("firefox/nightly/notes/feed/", bedrock.releasenotes.views.nightly_feed, name="firefox.nightly.notes.feed"),
     re_path("firefox/(?:latest/)?releasenotes/$", bedrock.releasenotes.views.latest_notes, {"product": "firefox"}),
-    re_path("firefox/android/releasenotes/$", bedrock.releasenotes.views.latest_notes, {"product": "Firefox for Android"}),
-    re_path("firefox/ios/releasenotes/$", bedrock.releasenotes.views.latest_notes, {"product": "Firefox for iOS"}),
+    path("firefox/android/releasenotes/", bedrock.releasenotes.views.latest_notes, {"product": "Firefox for Android"}),
+    path("firefox/ios/releasenotes/", bedrock.releasenotes.views.latest_notes, {"product": "Firefox for iOS"}),
     re_path(
         f"^firefox/(?:{platform_re}/)?(?:{channel_re}/)?system-requirements/$",
         bedrock.releasenotes.views.latest_sysreq,
@@ -163,6 +161,20 @@ urlpatterns = (
     path("firefox/linux/", views.PlatformViewLinux.as_view(), name="firefox.linux"),
     path("firefox/mac/", views.PlatformViewMac.as_view(), name="firefox.mac"),
     path("firefox/windows/", views.PlatformViewWindows.as_view(), name="firefox.windows"),
+    # Issue 10182
+    page("firefox/browsers/mobile/", "firefox/browsers/mobile/index.html", ftl_files=["firefox/browsers/mobile/index"]),
+    page("firefox/browsers/mobile/android/", "firefox/browsers/mobile/android.html", ftl_files=["firefox/browsers/mobile/android"]),
+    page("firefox/browsers/mobile/ios/", "firefox/browsers/mobile/ios.html", ftl_files=["firefox/browsers/mobile/ios"]),
+    page("firefox/browsers/mobile/get-ios/", "firefox/browsers/mobile/get-ios.html", ftl_files=["firefox/browsers/mobile/get-ios"]),
+    page("firefox/browsers/mobile/focus/", "firefox/browsers/mobile/focus.html", ftl_files=["firefox/browsers/mobile/focus"]),
+    page("firefox/browsers/mobile/get-app/", "firefox/browsers/mobile/get-app.html", ftl_files=["firefox/mobile"]),
+    # Issue 8641
+    page("firefox/browsers/best-browser/", "firefox/browsers/best-browser.html", ftl_files=["firefox/browsers/best-browser"]),
+    page("firefox/browsers/browser-history/", "firefox/browsers/browser-history.html", ftl_files=["firefox/browsers/history/browser-history"]),
+    page("firefox/browsers/incognito-browser/", "firefox/browsers/incognito-browser.html"),
+    page("firefox/browsers/update-your-browser/", "firefox/browsers/update-browser.html"),
+    page("firefox/browsers/what-is-a-browser/", "firefox/browsers/what-is-a-browser.html", ftl_files=["firefox/browsers/history/what-is-a-browser"]),
+    page("firefox/browsers/windows-64-bit/", "firefox/browsers/windows-64-bit.html", ftl_files=["firefox/browsers/windows-64-bit"]),
     page(
         "firefox/browsers/compare/",
         "firefox/browsers/compare/index.html",
@@ -193,24 +205,8 @@ urlpatterns = (
         "firefox/browsers/compare/safari.html",
         ftl_files=["firefox/browsers/compare/safari", "firefox/browsers/compare/shared"],
     ),
-    # Issue 10182
-    page("firefox/browsers/mobile/", "firefox/browsers/mobile/index.html", ftl_files=["firefox/browsers/mobile/index"]),
-    page("firefox/browsers/mobile/android/", "firefox/browsers/mobile/android.html", ftl_files=["firefox/browsers/mobile/android"]),
-    page("firefox/browsers/mobile/ios/", "firefox/browsers/mobile/ios.html", ftl_files=["firefox/browsers/mobile/ios"]),
-    page("firefox/browsers/mobile/get-ios/", "firefox/browsers/mobile/get-ios.html", ftl_files=["firefox/browsers/mobile/get-ios"]),
-    page("firefox/browsers/mobile/focus/", "firefox/browsers/mobile/focus.html", ftl_files=["firefox/browsers/mobile/focus"]),
-    page("firefox/browsers/mobile/get-app/", "firefox/browsers/mobile/get-app.html", ftl_files=["firefox/mobile"]),
-    # Issue 8641
-    page("firefox/browsers/best-browser/", "firefox/browsers/best-browser.html", ftl_files=["firefox/browsers/best-browser"]),
-    page("firefox/browsers/browser-history/", "firefox/browsers/browser-history.html", ftl_files=["firefox/browsers/history/browser-history"]),
-    page("firefox/browsers/incognito-browser/", "firefox/browsers/incognito-browser.html"),
-    page("firefox/browsers/update-your-browser/", "firefox/browsers/update-browser.html"),
-    page("firefox/browsers/what-is-a-browser/", "firefox/browsers/what-is-a-browser.html", ftl_files=["firefox/browsers/history/what-is-a-browser"]),
-    page("firefox/browsers/windows-64-bit/", "firefox/browsers/windows-64-bit.html", ftl_files=["firefox/browsers/windows-64-bit"]),
     # Issue 7765, 7709
     page("firefox/privacy/", "firefox/privacy/index.html", ftl_files=["firefox/privacy-hub"]),
-    page("firefox/privacy/products/", "firefox/privacy/products.html", ftl_files=["firefox/privacy-hub"]),
-    page("firefox/privacy/safe-passwords/", "firefox/privacy/passwords.html", ftl_files=["firefox/privacy-hub", "firefox/privacy/passwords"]),
     # Issue 8432
     # Issue 13253: Ensure that Firefox can continue to refer to this URL.
     page("firefox/set-as-default/thanks/", "firefox/set-as-default/thanks.html", ftl_files="firefox/set-as-default/thanks"),
@@ -221,7 +217,6 @@ urlpatterns = (
     page("firefox/browsers/quantum/", "firefox/browsers/quantum.html", ftl_files="firefox/browsers/quantum"),
     page("firefox/faq/", "firefox/faq.html", ftl_files="firefox/faq"),
     page("firefox/browsers/chromebook/", "firefox/browsers/chromebook.html", ftl_files="firefox/browsers/chromebook"),
-    page("firefox/privacy/book/", "firefox/privacy/book.html", ftl_files="firefox/privacy/book"),
     # Issue 9957
     page("firefox/more/misinformation/", "firefox/more/misinformation.html", ftl_files="firefox/more/misinformation"),
     # Firefox for Families evergreen page, Issue #12004

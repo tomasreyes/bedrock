@@ -1,0 +1,192 @@
+{#
+ This Source Code Form is subject to the terms of the Mozilla Public
+ License, v. 2.0. If a copy of the MPL was not distributed with this
+ file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#}
+
+{% extends "firefox/base/base-protocol.html" %}
+{% from "macros.html" import google_play_button, apple_app_store_button, fxa_email_form with context %}
+
+{# Issue 13019: Avoid duplicate content for English pages. #}
+{%- block page_title_full -%}
+  {%- if LANG == 'en-US' -%}
+    Get Firefox browser — Mozilla (US)
+  {%- elif LANG == 'en-GB' -%}
+    Download Firefox Browser — Mozilla (UK)
+  {%- else -%}
+    {{ ftl('firefox-browsers-page-title') }} - Mozilla
+  {%- endif -%}
+{%- endblock -%}
+
+{% block page_desc %}{{ ftl('firefox-browsers-page-desc') }}{% endblock %}
+
+{% set show_firefox_app_store_banner = switch('firefox-app-store-banner') %}
+
+{% block page_css %}
+  {{ css_bundle('protocol-emphasis-box')}}
+  {{ css_bundle('firefox-browsers-products') }}
+
+  {% if show_firefox_app_store_banner %}
+    {{ css_bundle('firefox-app-store-banner') }}
+  {% endif %}
+{% endblock %}
+
+{% block page_banner %}
+  {% if show_firefox_app_store_banner %}
+    {% include 'includes/banners/mobile/firefox-app-store.html' %}
+  {% endif %}
+{% endblock %}
+
+{% set android_url = play_store_url('firefox', 'firefox-home') %}
+{% set ios_url = app_store_url('firefox', 'firefox-home') %}
+{% set referrals = '?utm_source=www.mozilla.org&utm_medium=referral&utm_campaign=firefox-home' %}
+{% set _entrypoint = 'mozilla.org-firefox-home' %}
+
+{% block sub_navigation %}
+  {% if ftl_has_messages('sub-navigation-firefox', 'sub-navigation-what-is-a-browser', 'sub-navigation-browsing-history') %}
+    <nav class="c-sub-navigation">
+      <div class="mzp-l-content">
+        <div class="c-sub-navigation-content">
+          <h2 class="c-sub-navigation-title is-summary">
+            <a href="{{ url('firefox') }}" data-link-type="nav" data-link-position="subnav" data-link-text="Firefox">
+              <img class="c-sub-navigation-icon" src="{{ static('protocol/img/logos/firefox/logo.svg') }}" width="24" height="24" alt="">
+              {{ ftl('sub-navigation-firefox') }}
+            </a>
+          </h2>
+          <ul class="c-sub-navigation-list is-details is-closed">
+            <li class="c-sub-navigation-item">
+              <a href="{{ url('firefox.browsers.what-is-a-browser') }}" data-link-type="nav" data-link-position="subnav" data-link-text="What Is a Browser?">
+                {{ ftl('sub-navigation-what-is-a-browser') }}
+              </a>
+            </li>
+            <li class="c-sub-navigation-item">
+              <a href="{{ url('firefox.browsers.browser-history') }}" data-link-type="nav" data-link-position="subnav" data-link-text="Browser History">
+                {{ ftl('sub-navigation-browser-history') }}
+              </a>
+            </li>
+            <li class="c-sub-navigation-item">
+              <a href="{{ url('firefox.faq') }}" data-link-type="nav" data-link-position="subnav" data-link-text="FAQ">
+                {{ ftl('sub-navigation-faq') }}
+              </a>
+            </li>
+            <li class="c-sub-navigation-item">
+              <a href="{{ url('firefox.more') }}" data-link-type="nav" data-link-position="subnav" data-link-text="Learn More">
+                {{ ftl('sub-navigation-learn-more') }}
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<main>
+  <header class="c-main-header mzp-l-content mzp-t-content-md">
+    <div class="mzp-c-logo mzp-t-logo-lg mzp-t-product-firefox"></div>
+    {% if ftl_has_messages('firefox-browsers-main-heading') %}
+      <h1>{{ ftl('firefox-browsers-main-heading') }}</h1>
+      <h2 class="mzp-has-zap-11">
+        {{ ftl('firefox-browsers-get-the-browsers-strong-v2', fallback='firefox-browsers-get-the-browsers-strong') }}
+      </h2>
+    {% else %}
+      <h1 class="mzp-has-zap-11">
+        {{ ftl('firefox-browsers-get-the-browsers-strong-v2', fallback='firefox-browsers-get-the-browsers-strong') }}
+      </h1>
+    {% endif %}
+  </header>
+
+  <div class="mzp-l-content c-landing-grid">
+    <div class="c-landing-grid-item">
+      {{ resp_img(
+        url='img/firefox/browsers/desktop.jpg',
+        srcset={
+          'img/firefox/browsers/desktop-high-res.jpg': '2x'
+        },
+        optional_attributes={
+          'class': 'c-landing-grid-img',
+          'width': '350',
+          'height': '233'
+        }
+      ) }}
+      <h2 class="c-landing-grid-title"><a href="{{ url('firefox.new') }}" data-cta-type="link" data-cta-text="Desktop">{{ ftl('firefox-browsers-desktop') }}</a></h2>
+      <p>{{ ftl('firefox-browsers-seriously-private-browsing') }}</p>
+
+      <p id="desktop-download">
+        {# Old IE users need to click a download button, the JS on the thank you page doesn't get them the right download if we send them there directly #}
+        <!--[if IE]>
+          <a href="{{ url('firefox.new') }}" data-cta-type="link" data-cta-text="Firefox Desktop">{{ ftl('firefox-browsers-download-for-desktop') }}</a>
+        <![endif]-->
+        <!--[if !IE]><!-->
+          {# Download link should be locale neutral see issue 7982 #}
+          <a id="qa-desktop-download" class="mzp-c-cta-link cta-download" href="/firefox/download/thanks/" data-link-type="Desktop" data-download-os="Desktop" data-download-version="standard" data-testid="firefox-desktop-download">{{ ftl('firefox-browsers-download-for-desktop') }}</a>
+        <!--<![endif]-->
+      </p>
+
+      <p><a class="mzp-c-cta-link" href="{{ url('firefox.new') }}" data-cta-type="link" data-cta-text="Desktop Learn More">{{ ftl('ui-learn-more') }}</a></p>
+    </div>
+
+    <div class="c-landing-grid-item">
+      {{ resp_img(
+        url='img/firefox/browsers/mobile.jpg',
+        srcset={
+          'img/firefox/browsers/mobile-high-res.jpg': '2x'
+        },
+        optional_attributes={
+          'class': 'c-landing-grid-img',
+          'width': '350',
+          'height': '233'
+        }
+      ) }}
+      <h2 class="c-landing-grid-title "><a class="mzp-c-cta-link" href="{{ url('firefox.browsers.mobile.index') }}" data-cta-type="link" data-cta-text="Mobile">{{ ftl('firefox-browsers-mobile') }}</a></h2>
+      <p>{{ ftl('firefox-browsers-take-the-same-level-of-privacy') }}</p>
+
+      <div class="appstore-android">
+        {{ google_play_button(href=android_url, id='playStoreLink') }}
+      </div>
+      <div class="appstore-ios">
+        {{ apple_app_store_button(href=ios_url, id='appStoreLink') }}
+      </div>
+      <div id="menu-mobile-wrapper"  class="mzp-c-menu-list mzp-t-cta mzp-t-download">
+        <h3 class="mzp-c-menu-list-title" data-testid="firefox-mobile-download-menu-button">{{ ftl('firefox-browsers-download-for-mobile') }}</h3>
+        <ul class="mzp-c-menu-list-list" id="menu-mobile">
+          <li class="mzp-c-menu-list-item"><a href="{{ android_url }}" rel="external noopener" class="ga-product-download" data-link-type="download" data-display-name="Android" data-download-version="android" data-download-os="Android" data-testid="firefox-android-menu-link">{{ ftl('firefox-browsers-android') }}</a></li>
+          <li class="mzp-c-menu-list-item"><a href="{{ ios_url }}" rel="external noopener" class="ga-product-download" data-link-type="download" data-display-name="iOS" data-download-version="ios" data-download-os="iOS" data-testid="firefox-ios-menu-link">{{ ftl('firefox-browsers-ios') }}</a></li>
+          <li class="mzp-c-menu-list-item t-getapp"><a href="{{ url('firefox.browsers.mobile.get-app') }}" data-cta-type="link" data-cta-text="Get App Mobile">{{ ftl('firefox-browsers-send-me-a-link') }}</a></li>
+        </ul>
+      </div>
+      <p><a class="mzp-c-cta-link" href="{{ url('firefox.browsers.mobile.index') }}" data-cta-type="link" data-cta-text="Mobile Learn More">{{ ftl('ui-learn-more') }}</a></p>
+    </div>
+
+    <div class="c-landing-grid-item">
+      {{ resp_img(
+        url='img/firefox/browsers/enterprise.jpg',
+        srcset={
+          'img/firefox/browsers/enterprise-high-res.jpg': '2x'
+        },
+        optional_attributes={
+          'class': 'c-landing-grid-img',
+          'width': '350',
+          'height': '233'
+        }
+      ) }}
+      <h2 class="c-landing-grid-title"><a href="{{ url('firefox.enterprise.index') }}" data-cta-type="link" data-cta-text="Enterprise">{{ ftl('firefox-browsers-enterprise') }}</a></h2>
+      <p>{{ ftl('firefox-browsers-get-unmatched-data-protection') }}</p>
+      <p><a class="mzp-c-cta-link" href="{{ url('firefox.enterprise.index') }}#download" data-cta-type="link" data-cta-text="Enterprise packages">{{ ftl('firefox-browsers-enterprise-packages') }}</a></p>
+      <p><a class="mzp-c-cta-link" href="{{ url('firefox.enterprise.index') }}" data-cta-type="link" data-cta-text="Enterprise Learn More">{{ ftl('ui-learn-more') }}</a></p>
+    </div>
+  </div>
+
+  {% include 'mozorg/includes/mozilla-account-promo.html' %}
+</main>
+{% endblock %}
+
+{% block js %}
+  {{ js_bundle('fxa_form') }}
+  {{ js_bundle('firefox-browsers-products') }}
+
+  {% if show_firefox_app_store_banner %}
+    {{ js_bundle('firefox-app-store-banner') }}
+  {% endif %}
+{% endblock %}

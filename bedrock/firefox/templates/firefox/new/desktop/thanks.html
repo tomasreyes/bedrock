@@ -63,14 +63,6 @@
   {% endif %}
 
     <div class="c-support-install">
-      {# shown to all Windows users from the release of Firefox 103 onward. #}
-      {% if switch('firefox-103-taskbar-message') and ftl_has_messages('firefox-desktop-download-taskbar') %}
-        <p class="show-windows">
-          <a href="https://support.mozilla.org/kb/how-unpin-firefox-taskbar-windows-10{{ referrals }}">
-            {{ ftl('firefox-desktop-download-taskbar') }}
-          </a>
-        </p>
-      {% endif %}
       <p class="show-mac">
         {% set support_mac_attrs = 'href="https://support.mozilla.org/kb/how-download-and-install-firefox-mac%s" rel="external noopener" data-cta-type="link" data-cta-text="Get help with your installation"'|safe|format(referrals) %}
         {{ ftl('firefox-desktop-download-get-help', attrs=support_mac_attrs) }}
@@ -81,8 +73,8 @@
       </p>
       <div class="show-linux">
         <div class="c-linux-button-group">
-          <a href="{{ settings.BOUNCER_URL }}?product=firefox-latest-ssl&os=linux&lang={{ LANG }}" class="mzp-c-button mzp-t-product">{{ ftl('download-button-linux-32-v2') }}</a>
-          <a href="{{ settings.BOUNCER_URL }}?product=firefox-latest-ssl&os=linux64&lang={{ LANG }}" class="mzp-c-button mzp-t-product">{{ ftl('download-button-linux-64-v2') }}</a>
+          <a href="{{ settings.BOUNCER_URL }}?product=firefox-latest-ssl&os=linux&lang={{ LANG }}" class="mzp-c-button mzp-t-product" data-testid="thanks-download-button-linux-32">{{ ftl('download-button-linux-32-v2') }}</a>
+          <a href="{{ settings.BOUNCER_URL }}?product=firefox-latest-ssl&os=linux64&lang={{ LANG }}" class="mzp-c-button mzp-t-product" data-testid="thanks-download-button-linux-64">{{ ftl('download-button-linux-64-v2') }}</a>
         </div>
         {% set attrs = 'href="https://support.mozilla.org/kb/install-firefox-linux%s#w_install-firefox-deb-package-for-debian-based-distributions" rel="external noopener" data-cta-type="link" data-cta-text="You can set up our APT repository instead"'|safe|format(referrals) %}
         <p class="linux-deb-text">{{ ftl('download-button-using-debian', attrs=attrs) }}</p>

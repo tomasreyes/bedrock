@@ -7,7 +7,6 @@
 const FxaForm = {};
 
 let formElem;
-let email;
 let entrypointInput;
 let entrypointExp;
 let entrypointVar;
@@ -33,6 +32,12 @@ const fxaParams = [
 ];
 
 const acceptedParams = utms.concat(fxaParams);
+
+/**
+ * Flag to skip non-essential attribution data.
+ * Default to true.
+ */
+FxaForm.skipAttribution = true;
 
 /**
  * Creates a hidden form input.
@@ -153,20 +158,30 @@ FxaForm.fetchTokens = function () {
 };
 
 /**
- * Intercept event handler for FxA forms, lets the browser drive the FxA Flow using
- * the `showFirefoxAccounts` UITour API. Attaches several UTM parameters from the current page
- * that will be forwarded to the browser and later on to FxA services.
- * @param event {Event}
- * @private
+ * Builds extraURLParams object for passing to UITour.showFirefoxAccounts().
+ * @returns {Object} extraURLParams
  */
-FxaForm.interceptFxANavigation = function (event) {
-    event.preventDefault();
-    const extraURLParams = FxaForm.getUTMParams();
+FxaForm.getExtraURLParams = function () {
+    const utmSource = document.getElementById('fxa-email-form-utm-source');
+    const utmCampaign = document.getElementById('fxa-email-form-utm-campaign');
+    const entrypointExp = document.getElementById(
+        'fxa-email-form-entrypoint-experiment'
+    );
+    const entrypointVar = document.getElementById(
+        'fxa-email-form-entrypoint-variation'
+    );
 
-    let entrypoint = null;
-    if (entrypointInput && entrypointInput.value) {
-        entrypoint = entrypointInput.value;
+    // Only include basic page source/campaign if attribution is skipped.
+    if (FxaForm.skipAttribution) {
+        return utmSource.value && utmCampaign.value
+            ? {
+                  utm_source: utmSource.value,
+                  utm_campaign: utmCampaign.value
+              }
+            : null;
     }
+
+    const extraURLParams = FxaForm.getUTMParams();
     if (entrypointExp && entrypointExp.value) {
         extraURLParams['entrypoint_experiment'] = entrypointExp.value;
     }
@@ -174,9 +189,7 @@ FxaForm.interceptFxANavigation = function (event) {
         extraURLParams['entrypoint_variation'] = entrypointVar.value;
     }
 
-    if (email) {
-        email = email.value;
-    }
+    const formElem = document.getElementById('fxa-email-form');
 
     if (formElem) {
         const deviceId = formElem.querySelector('[name="device_id"]');
@@ -197,6 +210,33 @@ FxaForm.interceptFxANavigation = function (event) {
             );
         }
     }
+
+    return extraURLParams;
+};
+
+/**
+ * Intercept event handler for FxA forms, lets the browser drive the FxA Flow using
+ * the `showFirefoxAccounts` UITour API. Attaches several UTM parameters from the current page
+ * that will be forwarded to the browser and later on to FxA services.
+ * @param event {Event}
+ */
+FxaForm.interceptFxANavigation = function (event) {
+    event.preventDefault();
+    const extraURLParams = FxaForm.getExtraURLParams();
+    const entrypointInput = document.getElementById(
+        'fxa-email-form-entrypoint'
+    );
+    let email = document.getElementById('fxa-email-field');
+
+    let entrypoint = null;
+    if (entrypointInput && entrypointInput.value) {
+        entrypoint = entrypointInput.value;
+    }
+
+    if (email) {
+        email = email.value;
+    }
+
     return Mozilla.UITour.showFirefoxAccounts(
         extraURLParams,
         entrypoint,
@@ -205,10 +245,17 @@ FxaForm.interceptFxANavigation = function (event) {
 };
 
 /**
- * Configures Sync for Firefox browsers.
+ * Sets the service context parameters for Sync on Firefox desktop.
  */
 FxaForm.setServiceContext = function () {
-    const contextField = formElem.querySelector('[name="context"]');
+    const form = document.getElementById('fxa-email-form');
+
+    // If the form is not present, do nothing.
+    if (!form) {
+        return;
+    }
+
+    const contextField = form.querySelector('[name="context"]');
     const userVer = parseFloat(Mozilla.Client._getFirefoxVersion());
     const useUITourForFxA =
         userVer >= 80 && typeof Mozilla.UITour !== 'undefined';
@@ -217,13 +264,23 @@ FxaForm.setServiceContext = function () {
         // context is required for all Firefox desktop clients.
         if (!contextField) {
             const context = FxaForm.createInput('context', 'fx_desktop_v3');
-            formElem.appendChild(context);
+            form.appendChild(context);
         }
 
         Mozilla.UITour.ping(() => {
             // intercept the flow and submit the form using the UITour API.
-            formElem.addEventListener('submit', FxaForm.interceptFxANavigation);
+            form.addEventListener('submit', FxaForm.interceptFxANavigation);
         });
+    }
+};
+
+/**
+ * Configures Sync for Firefox browsers.
+ */
+FxaForm.configureSync = function () {
+    // Configure Sync for Firefox desktop browsers.
+    if (Mozilla.Client._isFirefoxDesktop()) {
+        FxaForm.setServiceContext();
     }
 };
 
@@ -231,13 +288,21 @@ FxaForm.isSupported = function () {
     return 'Promise' in window && 'fetch' in window;
 };
 
-FxaForm.init = function () {
+/**
+ * Initializes FxA form. Responsible for configuring Sync on Firefox desktop,
+ * as well as passing attribution params from the page URL through the form
+ * to FxA.
+ * @param {Boolean} skipAttr - skips attribution, configuring Sync only.
+ * @returns {Promise}
+ */
+FxaForm.init = function (skipAttr) {
     if (!FxaForm.isSupported()) {
         return false;
     }
 
+    FxaForm.skipAttribution = typeof skipAttr === 'boolean' ? skipAttr : true;
+
     formElem = document.getElementById('fxa-email-form');
-    email = document.getElementById('fxa-email-field');
     entrypointInput = document.getElementById('fxa-email-form-entrypoint');
     entrypointExp = document.getElementById(
         'fxa-email-form-entrypoint-experiment'
@@ -252,27 +317,27 @@ FxaForm.init = function () {
 
     return new window.Promise((resolve, reject) => {
         if (formElem) {
-            // Pass through UTM params from the URL to the form.
-            const utms = FxaForm.getUTMParams();
-            Object.keys(utms).forEach((i) => {
-                // check if input is available
-                if (formElem.querySelector('[name="' + i + '"]')) {
-                    formElem.querySelector('[name="' + i + '"]').value =
-                        utms[i];
-                } else {
-                    // create input if one is not present
-                    const input = FxaForm.createInput(i, utms[i]);
-                    formElem.appendChild(input);
-                }
-            });
+            if (!FxaForm.skipAttribution) {
+                // Pass through UTM params from the URL to the form.
+                const utms = FxaForm.getUTMParams();
+                Object.keys(utms).forEach((i) => {
+                    // check if input is available
+                    if (formElem.querySelector('[name="' + i + '"]')) {
+                        formElem.querySelector('[name="' + i + '"]').value =
+                            utms[i];
+                    } else {
+                        // create input if one is not present
+                        const input = FxaForm.createInput(i, utms[i]);
+                        formElem.appendChild(input);
+                    }
+                });
 
-            FxaForm.fetchTokens().then(() => {
-                // Configure Sync for Firefox desktop browsers.
-                if (Mozilla.Client._isFirefoxDesktop()) {
-                    FxaForm.setServiceContext();
-                }
+                FxaForm.fetchTokens().then(() => {
+                    resolve();
+                });
+            } else {
                 resolve();
-            });
+            }
         } else {
             reject();
         }

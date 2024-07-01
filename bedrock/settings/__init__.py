@@ -5,6 +5,8 @@
 import logging.config
 import sys
 
+from csp.constants import SELF, UNSAFE_EVAL, UNSAFE_INLINE
+
 from .base import *  # noqa: F403, F405
 
 # This file:
@@ -15,13 +17,8 @@ from .base import *  # noqa: F403, F405
 
 # 1. OPERATION MODE SELECTION and specific config
 # Which site do we want Bedrock to serve?
-POCKET_SITE_MODE = "Pocket"
-MOZORG_SITE_MODE = "Mozorg"
 
-site_mode = config("SITE_MODE", default=MOZORG_SITE_MODE)
-
-IS_POCKET_MODE = site_mode == POCKET_SITE_MODE
-IS_MOZORG_MODE = not IS_POCKET_MODE
+# IS_POCKET_MODE and IS_MOZORG_MODE are set in settings.base
 
 if IS_POCKET_MODE:
     ROOT_URLCONF = "bedrock.urls.pocket_mode"
@@ -74,7 +71,7 @@ if IS_POCKET_MODE:
     }
 
     FALLBACK_LOCALES = {
-        # TODO: Drop after confirming no longer used _anywhere_
+        # Not needed in Bedrock
     }
 
     PROD_LANGUAGES = [
@@ -102,6 +99,14 @@ if IS_POCKET_MODE:
     DEV_LANGUAGES = PROD_LANGUAGES
     LANGUAGE_CODE = "en"  # Pocket uses `en` not `en-US`
 
+    # Pocket mode doesn't need language names available for a lang picker, so we can just do this
+    # rather than fish around in product_details.languages. This is extra-handy because Pocket Mode
+    # uses language codes that don't all appear in product_details.languages
+    LANGUAGES = [(lang, lang) for lang in PROD_LANGUAGES]
+
+    # We don't want any fallback lang support for Pocket mode, so let's override the Bedrock base default
+    LANGUAGE_URL_MAP_WITH_FALLBACKS = LANGUAGE_URL_MAP
+
     COOKIE_CONSENT_SCRIPT_SRC = "https://cdn.cookielaw.org/scripttemplates/otSDKStub.js"
     COOKIE_CONSENT_DATA_DOMAIN = "a7ff9c31-9f59-421f-9a8e-49b11a3eb24e-test" if DEV else "a7ff9c31-9f59-421f-9a8e-49b11a3eb24e"
 
@@ -111,7 +116,7 @@ if IS_POCKET_MODE:
 
     # CSP settings for POCKET, expanded upon later:
     _csp_default_src = [
-        "'self'",
+        SELF,
         "*.getpocket.com",
     ]
     _csp_img_src = [
@@ -123,18 +128,18 @@ if IS_POCKET_MODE:
     ]
     _csp_script_src = [
         # TODO fix use of OptanonWrapper() so that we don't need this
-        "'unsafe-inline'",
+        UNSAFE_INLINE,
         # TODO onetrust cookie consent breaks
         # blocked without unsafe-eval. Find a way to remove that.
         "www.mozilla.org",
-        "'unsafe-eval'",
+        UNSAFE_EVAL,
         "www.googletagmanager.com",
         "www.google-analytics.com",
         "cdn.cookielaw.org",
         "assets.getpocket.com",  # allow Pocket Snowplow analytics
     ]
     _csp_style_src = [
-        "'unsafe-inline'",
+        UNSAFE_INLINE,
         "www.mozilla.org",
     ]
     _csp_child_src = [
@@ -154,10 +159,7 @@ if IS_POCKET_MODE:
     _csp_connect_extra_for_dev = [
         "com-getpocket-prod1.mini.snplow.net",
     ]
-    _csp_font_src = [
-        "'self'",
-        "assets.getpocket.com",
-    ]
+    _csp_font_src = []
 
 else:
     # Mozorg mode
@@ -165,7 +167,7 @@ else:
 
     # CSP settings for MOZORG, expanded upon later:
     _csp_default_src = [
-        "'self'",
+        SELF,
         "*.mozilla.net",
         "*.mozilla.org",
         "*.mozilla.com",
@@ -180,10 +182,10 @@ else:
     ]
     _csp_script_src = [
         # TODO fix things so that we don't need this
-        "'unsafe-inline'",
+        UNSAFE_INLINE,
         # TODO snap.svg.js passes a string to Function() which is
         # blocked without unsafe-eval. Find a way to remove that.
-        "'unsafe-eval'",
+        UNSAFE_EVAL,
         "www.googletagmanager.com",
         "www.google-analytics.com",
         "tagmanager.google.com",
@@ -193,15 +195,12 @@ else:
     ]
     _csp_style_src = [
         # TODO fix things so that we don't need this
-        "'unsafe-inline'",
+        UNSAFE_INLINE,
     ]
     _csp_child_src = [
         "www.googletagmanager.com",
         "www.google-analytics.com",
-        "trackertest.org",  # mozilla service for tracker detection
-        "www.surveygizmo.com",
         "accounts.firefox.com",
-        "accounts.firefox.com.cn",
         "www.youtube.com",
         "js.stripe.com",
     ]
@@ -217,9 +216,7 @@ else:
         "cjms.services.mozilla.com",
     ]
     _csp_connect_extra_for_dev = []
-    _csp_font_src = [
-        "'self'",
-    ]
+    _csp_font_src = []
 
 sys.stdout.write(f"Using SITE_MODE of '{site_mode}'\n")
 
@@ -227,7 +224,7 @@ sys.stdout.write(f"Using SITE_MODE of '{site_mode}'\n")
 # TODO: make this selectable by an env var, like the other modes
 if (len(sys.argv) > 1 and sys.argv[1] == "test") or "pytest" in sys.modules:
     # Using the CachedStaticFilesStorage for tests breaks all the things.
-    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    STORAGES["staticfiles"]["BACKEND"] = "django.contrib.staticfiles.storage.StaticFilesStorage"
     # TEMPLATE_DEBUG has to be True for Jinja to call the template_rendered
     # signal which Django's test client uses to save away the contexts for your
     # test to look at later.
@@ -239,32 +236,46 @@ if (len(sys.argv) > 1 and sys.argv[1] == "test") or "pytest" in sys.modules:
 
 
 # 3. DJANGO-CSP SETTINGS
-CSP_DEFAULT_SRC = _csp_default_src
-EXTRA_CSP_DEFAULT_SRC = config("CSP_DEFAULT_SRC", parser=ListOf(str), default="")
-if EXTRA_CSP_DEFAULT_SRC:
-    CSP_DEFAULT_SRC += EXTRA_CSP_DEFAULT_SRC
-
-CSP_IMG_SRC = CSP_DEFAULT_SRC + _csp_img_src
-
-CSP_SCRIPT_SRC = CSP_DEFAULT_SRC + _csp_script_src
-CSP_STYLE_SRC = CSP_DEFAULT_SRC + _csp_style_src
-CSP_CHILD_SRC = CSP_DEFAULT_SRC + _csp_child_src
-CSP_CONNECT_SRC = CSP_DEFAULT_SRC + _csp_connect_src
-
+extra_csp_default_src = config("CSP_DEFAULT_SRC", default="", parser=ListOf(str))
+if extra_csp_default_src:
+    _csp_default_src = list(set(_csp_default_src + extra_csp_default_src))
 if DEV:
     if _csp_connect_extra_for_dev:
-        CSP_CONNECT_SRC.extend(_csp_connect_extra_for_dev)
+        _csp_connect_src = list(set(_csp_connect_src + _csp_connect_extra_for_dev))
+_csp_child_src = list(set(_csp_default_src + _csp_child_src))
+csp_extra_frame_src = config("CSP_EXTRA_FRAME_SRC", default="", parser=ListOf(str))
+if csp_extra_frame_src:
+    _csp_child_src = list(set(_csp_child_src + csp_extra_frame_src))
 
-CSP_REPORT_ONLY = config("CSP_REPORT_ONLY", default="false", parser=bool)
-CSP_REPORT_URI = config("CSP_REPORT_URI", default="") or None
+CONTENT_SECURITY_POLICY = {
+    "DIRECTIVES": {
+        "default-src": _csp_default_src,
+        "img-src": list(set(_csp_default_src + _csp_img_src)),
+        "script-src": list(set(_csp_default_src + _csp_script_src)),
+        "style-src": list(set(_csp_default_src + _csp_style_src)),
+        "font-src": list(set(_csp_default_src + _csp_font_src)),
+        "child-src": _csp_child_src,
+        "connect-src": list(set(_csp_default_src + _csp_connect_src)),
+        # support older browsers (mainly Safari)
+        "frame-src": _csp_child_src,
+        "report-uri": config("CSP_REPORT_URI", default="") or None,
+    },
+}
 
-CSP_EXTRA_FRAME_SRC = config("CSP_EXTRA_FRAME_SRC", default="", parser=ListOf(str))
-if CSP_EXTRA_FRAME_SRC:
-    CSP_CHILD_SRC += tuple(CSP_EXTRA_FRAME_SRC)
+# Mainly for overriding CSP settings for CMS admin.
+# Works in conjunction with the `bedrock.base.middleware.CSPMiddlewareByPathPrefix` middleware.
 
-# support older browsers (mainly Safari)
-CSP_FRAME_SRC = CSP_CHILD_SRC
-CSP_FONT_SRC = _csp_font_src
+# /cms-admin/images/ loads just-uploaded images as blobs.
+CMS_ADMIN_IMAGES_CSP = CONTENT_SECURITY_POLICY.copy()
+CMS_ADMIN_IMAGES_CSP["DIRECTIVES"]["img-src"] += ["blob:"]
+
+CSP_PATH_OVERRIDES = {
+    # The first path prefix that matches the request.path.startswith will be used, so order them
+    # from most specific to least.
+    "/cms-admin/images/": CMS_ADMIN_IMAGES_CSP,
+}
+CSP_PATH_OVERRIDES_REPORT_ONLY = {}
+
 
 # 4. SETTINGS WHICH APPLY REGARDLESS OF SITE MODE
 if DEV:
@@ -279,17 +290,6 @@ if CACHES["default"]["BACKEND"] == "django_pylibmc.memcached.PyLibMCCache":
         "tcp_nodelay": True,
         "ketama": True,
     }
-
-# cache for lang files
-CACHES["l10n"] = {
-    "BACKEND": "bedrock.base.cache.SimpleDictCache",
-    "LOCATION": "l10n",
-    "TIMEOUT": DOTLANG_CACHE,
-    "OPTIONS": {
-        "MAX_ENTRIES": 5000,
-        "CULL_FREQUENCY": 4,  # 1/4 entries deleted if max reached
-    },
-}
 
 # cache for Fluent files
 CACHES["fluent"] = {

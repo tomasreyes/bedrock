@@ -107,31 +107,6 @@ if (typeof window.Mozilla === 'undefined') {
         }
     };
 
-    // Bug 1264843: link to China build of Fx4A, for display within Fx China repack
-    Utils.maybeSwitchToChinaRepackImages = function (client) {
-        if (!client.distribution) {
-            return;
-        }
-
-        var distribution = client.distribution.toLowerCase();
-
-        // only swap out images for China Repack builds (issue 10157)
-        if (distribution !== 'mozillaonline') {
-            return;
-        }
-
-        var images = document.querySelectorAll(
-            'img[data-' + distribution + '-link]'
-        );
-
-        for (var j = 0; j < images.length; j++) {
-            var distributionSrc = images[j].getAttribute(
-                'data-' + distribution + '-link'
-            );
-            images[j].setAttribute('src', distributionSrc);
-        }
-    };
-
     // client-side redirects (handy for testing)
     Utils.doRedirect = function (destination) {
         if (destination) {
@@ -145,8 +120,9 @@ if (typeof window.Mozilla === 'undefined') {
     // then, each key name needs to be preceded by data- as this uses data attributes
     // to work. After this, you can access all strings defined inside the
     // string_data block in JS using Mozilla.Utils.trans('key-of-string'); Thank @mkelly
-    var _strings = document.getElementById('strings');
     Utils.trans = function (stringId) {
+        var _strings = document.getElementById('strings');
+
         if (_strings) {
             return _strings.getAttribute('data-' + stringId);
         } else {

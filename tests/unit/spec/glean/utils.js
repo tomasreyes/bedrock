@@ -12,168 +12,184 @@
 import Utils from '../../../../media/js/glean/utils.es6';
 
 describe('utils.js', function () {
-    afterEach(function () {
-        Mozilla.Analytics.customReferrer = '';
-    });
-
-    describe('getUrl', function () {
-        it('should return the a complete URL including query parameters', function () {
+    describe('filterURL', function () {
+        it('should retain original URLs including query parameters', function () {
             const url1 = 'https://www.mozilla.org/en-US/';
-            expect(Utils.getUrl(url1)).toEqual(url1);
+            expect(Utils.filterURL(url1)).toEqual(url1);
 
             const url2 =
                 'https://www.mozilla.org/en-US/firefox/new/?utm_source=test&utm_campaign=test';
-            expect(Utils.getUrl(url2)).toEqual(url2);
+            expect(Utils.filterURL(url2)).toEqual(url2);
         });
 
-        it('should remove newsletter tokens from know URLs', function () {
+        it('should remove newsletter tokens from known URLs', function () {
             const url1 =
                 'https://www.mozilla.org/en-US/newsletter/existing/a1a2a3a4-abc1-12ab-a123-12345a12345b/?utm_source=test&utm_campaign=test';
-            expect(Utils.getUrl(url1)).toEqual(
+            expect(Utils.filterURL(url1)).toEqual(
                 'https://www.mozilla.org/en-US/newsletter/existing/?utm_source=test&utm_campaign=test'
             );
 
             const url2 =
                 'https://www.mozilla.org/en-US/newsletter/country/a1a2a3a4-abc1-12ab-a123-12345a12345b/?utm_source=test&utm_campaign=test';
-            expect(Utils.getUrl(url2)).toEqual(
+            expect(Utils.filterURL(url2)).toEqual(
                 'https://www.mozilla.org/en-US/newsletter/country/?utm_source=test&utm_campaign=test'
             );
 
             const url3 =
                 'https://www.mozilla.org/en-US/newsletter/existing/?utm_source=test&utm_campaign=test';
-            expect(Utils.getUrl(url3)).toEqual(url3);
+            expect(Utils.filterURL(url3)).toEqual(url3);
         });
     });
 
-    describe('getPathFromUrl', function () {
-        it('should return the path from a page URL excluding locale', function () {
-            expect(Utils.getPathFromUrl('/en-US/firefox/new/')).toEqual(
-                '/firefox/new/'
+    describe('bootstrapGlean', function () {
+        afterEach(function () {
+            document
+                .getElementsByTagName('html')[0]
+                .removeAttribute('data-needs-consent');
+
+            window.removeEventListener(
+                'mozConsentStatus',
+                Utils.handleConsent,
+                false
             );
-            expect(Utils.getPathFromUrl('/de/firefox/new/')).toEqual(
-                '/firefox/new/'
-            );
-            expect(Utils.getPathFromUrl('/kab/firefox/new/')).toEqual(
-                '/firefox/new/'
-            );
-            expect(Utils.getPathFromUrl('/fr/')).toEqual('/');
         });
 
-        it('should return original path when there is no locale', function () {
-            expect(Utils.getPathFromUrl('/locales/')).toEqual('/locales/');
-        });
+        describe('EU visitors (explicit consent required)', function () {
+            beforeEach(function () {
+                document
+                    .getElementsByTagName('html')[0]
+                    .setAttribute('data-needs-consent', 'True');
 
-        it('should exclude tokens from newsletter URLS', function () {
-            expect(
-                Utils.getPathFromUrl(
-                    '/en-US/newsletter/existing/a1a2a3a4-abc1-12ab-a123-12345a12345b/'
-                )
-            ).toEqual('/newsletter/existing/');
+                spyOn(Utils, 'initGlean');
+                spyOn(Utils, 'initPageLoadEvent');
+                spyOn(Utils, 'initHelpers');
+            });
 
-            expect(
-                Utils.getPathFromUrl(
-                    '/en-US/newsletter/country/a1a2a3a4-abc1-12ab-a123-12345a12345b/'
-                )
-            ).toEqual('/newsletter/country/');
-        });
-    });
+            it('should return wait for a mozConsentStatus event before initializing Glean', function () {
+                Utils.bootstrapGlean();
+                expect(Utils.initGlean).not.toHaveBeenCalled();
+            });
 
-    describe('getLocaleFromUrl', function () {
-        it('should return the locale from a page URL excluding path', function () {
-            expect(Utils.getLocaleFromUrl('/en-US/firefox/new/')).toEqual(
-                'en-US'
-            );
-            expect(Utils.getLocaleFromUrl('/de/firefox/new/')).toEqual('de');
-            expect(Utils.getLocaleFromUrl('/kab/firefox/new/')).toEqual('kab');
-            expect(Utils.getLocaleFromUrl('/fr/')).toEqual('fr');
-        });
+            it('should init Glean and fire page load if mozConsentStatus event accepts analytics', function () {
+                Utils.bootstrapGlean();
+                expect(Utils.initGlean).not.toHaveBeenCalled();
 
-        it('should return `en-US` for language when there is no locale', function () {
-            expect(Utils.getLocaleFromUrl('/locales/')).toEqual('en-US');
-        });
-    });
+                window.dispatchEvent(
+                    new CustomEvent('mozConsentStatus', {
+                        detail: {
+                            analytics: true,
+                            preference: true
+                        }
+                    })
+                );
 
-    describe('getQueryParamsFromUrl', function () {
-        it('should return an object made up of params from a query string', function () {
-            const query =
-                'utm_source=test-source&utm_campaign=test-campaign&utm_medium=test-medium&utm_content=test-content&entrypoint_experiment=test_entrypoint_experiment&entrypoint_variation=1&experiment=test-experiment&variation=1&v=1&xv=test-xv';
+                expect(Utils.initGlean).toHaveBeenCalledWith(true);
+                expect(Utils.initPageLoadEvent).toHaveBeenCalled();
+                expect(Utils.initHelpers).toHaveBeenCalled();
+            });
 
-            expect(Utils.getQueryParamsFromUrl(query).params).toEqual({
-                utm_source: 'test-source',
-                utm_campaign: 'test-campaign',
-                utm_medium: 'test-medium',
-                utm_content: 'test-content',
-                entrypoint_experiment: 'test_entrypoint_experiment',
-                entrypoint_variation: 1,
-                experiment: 'test-experiment',
-                variation: 1,
-                v: 1,
-                xv: 'test-xv'
+            it('should init Glean to send a deletion request if mozConsentStatus event rejects analytics', function () {
+                Utils.bootstrapGlean();
+                expect(Utils.initGlean).not.toHaveBeenCalled();
+
+                window.dispatchEvent(
+                    new CustomEvent('mozConsentStatus', {
+                        detail: {
+                            analytics: false,
+                            preference: false
+                        }
+                    })
+                );
+
+                expect(Utils.initGlean).toHaveBeenCalledWith(false);
+                expect(Utils.initPageLoadEvent).not.toHaveBeenCalled();
+                expect(Utils.initHelpers).not.toHaveBeenCalled();
+            });
+
+            it('should load Glean on /thanks/ if a consent cookie exists that accepts analytics', function () {
+                const obj = {
+                    analytics: true,
+                    preference: false
+                };
+
+                spyOn(Utils, 'isFirefoxDownloadThanks').and.returnValue(true);
+                spyOn(window.Mozilla.Cookies, 'getItem').and.returnValue(
+                    JSON.stringify(obj)
+                );
+
+                Utils.bootstrapGlean();
+
+                expect(Utils.initGlean).toHaveBeenCalledWith(true);
+                expect(Utils.initPageLoadEvent).toHaveBeenCalled();
+                expect(Utils.initHelpers).toHaveBeenCalled();
+            });
+
+            it('should not load GTM on /thanks/ if a consent cookie exists that rejects analytics', function () {
+                const obj = {
+                    analytics: false,
+                    preference: false
+                };
+                spyOn(Utils, 'isFirefoxDownloadThanks').and.returnValue(true);
+                spyOn(window.Mozilla.Cookies, 'getItem').and.returnValue(
+                    JSON.stringify(obj)
+                );
+
+                Utils.bootstrapGlean();
+
+                expect(Utils.initGlean).not.toHaveBeenCalled();
+                expect(Utils.initPageLoadEvent).not.toHaveBeenCalled();
+            });
+
+            it('should not load GTM if a consent cookie exists but URL is not /thanks/', function () {
+                const obj = {
+                    analytics: true,
+                    preference: false
+                };
+                spyOn(Utils, 'isFirefoxDownloadThanks').and.returnValue(false);
+                spyOn(window.Mozilla.Cookies, 'getItem').and.returnValue(
+                    JSON.stringify(obj)
+                );
+
+                Utils.bootstrapGlean();
+
+                expect(Utils.initGlean).not.toHaveBeenCalled();
+                expect(Utils.initPageLoadEvent).not.toHaveBeenCalled();
+                expect(Utils.initHelpers).not.toHaveBeenCalled();
             });
         });
-    });
 
-    describe('getReferrer', function () {
-        afterEach(function () {
-            Mozilla.Analytics.customReferrer = '';
-        });
+        describe('Non-EU visitors (explicit consent not required)', function () {
+            beforeEach(function () {
+                document
+                    .getElementsByTagName('html')[0]
+                    .setAttribute('data-needs-consent', 'False');
 
-        it('should return a custom referrer when set', function () {
-            const expected = 'http://www.google.com/';
-            Mozilla.Analytics.customReferrer = expected;
-            expect(Utils.getReferrer()).toEqual(expected);
-        });
+                spyOn(Utils, 'initGlean');
+                spyOn(Utils, 'initPageLoadEvent');
+                spyOn(Utils, 'initHelpers');
+            });
 
-        it('should return regular referrer otherwise', function () {
-            const expected = 'http://www.bing.com/';
-            expect(Utils.getReferrer(expected)).toEqual(expected);
-        });
+            it('should init Glean and fire page load by default', function () {
+                Utils.bootstrapGlean();
+                expect(Utils.initGlean).toHaveBeenCalled();
+                expect(Utils.initPageLoadEvent).toHaveBeenCalled();
+                expect(Utils.initHelpers).toHaveBeenCalled();
+            });
 
-        it('should strip newsletter tokens from referrer URLs', function () {
-            const expected =
-                'https://www.mozilla.org/en-US/newsletter/country/a1a2a3a4-abc1-12ab-a123-12345a12345b/?utm_source=test&utm_campaign=test';
-            expect(Utils.getReferrer(expected)).toEqual(
-                'https://www.mozilla.org/en-US/newsletter/country/?utm_source=test&utm_campaign=test'
-            );
-        });
-    });
+            it('should init Glean to send a deletion request if consent cookie rejects analytics', function () {
+                const obj = {
+                    analytics: false,
+                    preference: false
+                };
+                spyOn(window.Mozilla.Cookies, 'getItem').and.returnValue(
+                    JSON.stringify(obj)
+                );
 
-    describe('getHttpStatus', function () {
-        afterEach(function () {
-            document
-                .getElementsByTagName('html')[0]
-                .removeAttribute('data-http-status');
-        });
-
-        it('should return 200 by default', function () {
-            expect(Utils.getHttpStatus()).toEqual('200');
-        });
-
-        it('should return 404 if matching data-http-status attribute is present in the page', function () {
-            document
-                .getElementsByTagName('html')[0]
-                .setAttribute('data-http-status', '404');
-            expect(Utils.getHttpStatus()).toEqual('404');
-        });
-    });
-
-    describe('isTelemetryEnabled', function () {
-        it('should return true if opt out cookie does not exist', function () {
-            spyOn(Mozilla.Cookies, 'hasItem').and.returnValue(false);
-            const result = Utils.isTelemetryEnabled();
-            expect(Mozilla.Cookies.hasItem).toHaveBeenCalledWith(
-                'moz-1st-party-data-opt-out'
-            );
-            expect(result).toBeTrue();
-        });
-
-        it('should return false if opt out cookie exists', function () {
-            spyOn(Mozilla.Cookies, 'hasItem').and.returnValue(true);
-            const result = Utils.isTelemetryEnabled();
-            expect(Mozilla.Cookies.hasItem).toHaveBeenCalledWith(
-                'moz-1st-party-data-opt-out'
-            );
-            expect(result).toBeFalse();
+                Utils.bootstrapGlean();
+                expect(Utils.initGlean).toHaveBeenCalledWith(false);
+                expect(Utils.initPageLoadEvent).not.toHaveBeenCalled();
+                expect(Utils.initHelpers).not.toHaveBeenCalled();
+            });
         });
     });
 });

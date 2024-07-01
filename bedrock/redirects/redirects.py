@@ -600,8 +600,8 @@ redirectpatterns = (
     redirect(r"^docs/xul/xulnotes/xulnote_xml\.html$", "http://developer.mozilla.org/en/XUL_Genealogy:_XML"),
     redirect(r"^docs/xul/xulnotes/xulnote_xpconnect\.html$", "http://developer.mozilla.org/en/Fun_With_XBL_and_XPConnect"),
     redirect(r"^donate_faq\.html$", "https://wiki.mozilla.org/Donate"),
-    redirect(r"^donate_form\.pdf$", "https://donate.mozilla.org/"),
-    redirect(r"^donate\.html$", "https://donate.mozilla.org/"),
+    redirect(r"^donate_form\.pdf$", "https://foundation.mozilla.org/donate/"),
+    redirect(r"^donate\.html$", "https://foundation.mozilla.org/donate/"),
     redirect(r"^download-mozilla\.html$", "http://developer.mozilla.org/en/Download_Mozilla_Source_Code"),
     redirect(r"^feedback\.html$", "/contact/"),
     redirect(r"^firebird$", "http://www.firefox.com"),
@@ -910,6 +910,7 @@ redirectpatterns = (
     redirect(r"^projects/calendar/holidays/$", "https://www.thunderbird.net/calendar/holidays/"),
     # bug 885799, 952429
     redirect(r"^projects/calendar/holidays\.html$", "https://www.thunderbird.net/calendar/holidays/"),
+    redirect(r"^projects/calendar/", "https://www.thunderbird.net/calendar/", locale_prefix=False),  # Bug 981063, catch all for old calendar urls.
     redirect(r"^products/camino/badges/$", "http://caminobrowser.org/community/promotion/"),
     redirect(r"^products/camino/features/searchCustomization\.html$", "http://caminobrowser.org/help/"),
     redirect(r"^products/camino/features/tipsTricks\.html$", "http://caminobrowser.org/help/"),

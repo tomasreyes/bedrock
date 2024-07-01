@@ -90,10 +90,8 @@ files and/or package.json file then simply running::
 
     **For Apple Silicon / M1 users**
 
-    If you find that when you're building you hit issues with Puppeteer not installing, these will help:
-
-    * `Set up a Rosetta Terminal <https://github.com/puppeteer/puppeteer/issues/6622#issuecomment-910101797>`_.
-    * Follow these `Puppeter installation tips: <https://github.com/puppeteer/puppeteer/issues/6622#issuecomment-787912758>`_.
+    If you find that when you're building you hit issues compiling assets, try unchecking
+    ``Use Rosetta for x86_64/amd64 emulation on Apple Silicon`` in the Docker Desktop settings.
 
 **Asset bundles**
 
@@ -239,6 +237,8 @@ credits, release notes, localizations, legal-docs etc::
     As a convenience, there is a ``make preflight`` command which automatically brings your installed Python and NPM
     dependencies up to date and also fetches the latest DB containing the latest site
     content. This is a good thing to run after pulling latest changes from the ``main`` branch.
+
+    We also have a git hook that will alert you if ``make preflight`` needs to be run. You can install it with ``make install-custom-git-hooks``
 
 .. _run-python-tests:
 
